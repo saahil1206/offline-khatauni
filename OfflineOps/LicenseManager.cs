@@ -11,7 +11,7 @@ namespace OfflineOps
 {
     public class LicenseManager
     {
-        private const string LICENSE_KEY = "OfflineOps5";
+        private const string LICENSE_KEY = "OfflineOps";
         private const string REGISTRY_PATH = @"SOFTWARE\OfflineOps";
 
         public static bool IsActivated()

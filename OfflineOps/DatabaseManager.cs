@@ -10,9 +10,9 @@ namespace OfflineOps
 {
     public class DatabaseManager
     {
-        private static string dbFileName = "ops-data.zip";
+        private static string dbFileName = $"{StaticVar.dataText}.{StaticVar.dataExt}";
         private static string dbPath = Path.Combine(Application.StartupPath, dbFileName);
-        private static string connectionString = $"Data Source={dbPath}";
+        private static string connectionString = $"{StaticVar.dataSource}={dbPath}";
 
         public static string ConnectionString => connectionString;
 

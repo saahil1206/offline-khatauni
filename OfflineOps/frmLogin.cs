@@ -4,9 +4,12 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Newtonsoft.Json;
 
 namespace OfflineOps
 {
@@ -38,7 +41,7 @@ namespace OfflineOps
             return base.ProcessDialogKey(keyData);
         }
 
-        private void btnLogin_Click(object sender, EventArgs e)
+        private async void btnLogin_Click(object sender, EventArgs e)
         {
             string username = txtUserName.Text.Trim();
             string password = txtPassword.Text.Trim();
@@ -47,6 +50,35 @@ namespace OfflineOps
             {
                 MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
+            }
+            if (!StaticVar.CheckInternetConnection())
+            {
+                MessageBox.Show("Internet connection required for login.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            try
+            {
+                var data = new { username = username, password = password };
+                using (var client = new HttpClient())
+                {
+                    string jsonData = JsonConvert.SerializeObject(data);
+                    StringContent content = new StringContent(jsonData, Encoding.UTF8, "application/json");
+
+                    var response = await client.PostAsync($"{StaticVar.apiServer}", content);
+                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+
+                    }
+                    else
+                    {
+
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             string access_key = username;
 
