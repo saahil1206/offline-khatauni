@@ -50,6 +50,29 @@ namespace OfflineOps
             return DateTime.UtcNow.AddMinutes(330);
         }
 
+        public static DateTime getGameCurrDate()
+        {
+            DateTime now = getCurrDateTime();
+            DateTime gameDayStart = new DateTime(now.Year, now.Month, now.Day, 1, 0, 0); // 1:00 AM today
+
+            DateTime resultDate;
+
+            if (now < gameDayStart)
+            {
+                resultDate = now.AddDays(-1); // use yesterday
+            }
+            else
+            {
+                resultDate = now;
+            }
+            return resultDate;
+        }
+
+        public static string getGameCurrDateStr()
+        {
+            return getGameCurrDate().ToString("yyyy-MM-dd");
+        }
+
         public static bool IsTokenExpired(string token)
         {
             try
@@ -92,6 +115,5 @@ namespace OfflineOps
                 return true;
             }
         }
-
     }
 }

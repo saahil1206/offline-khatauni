@@ -57,6 +57,7 @@ namespace OfflineOps
                         { "credit_amt", "TEXT DEFAULT '0'" },
                         { "apc_amount", "TEXT DEFAULT '0'" },
                         { "profit_loss", "TEXT DEFAULT '0'" },
+                        { "sync_date", "TEXT" },
                     };
                     CreateTable(conn, tableUsers, columnsUsers);
 
@@ -68,6 +69,41 @@ namespace OfflineOps
                         { "game_id", "INTEGER NOT NULL" },
                     };
                     CreateTable(conn, tableUserGames, columnsUserGames);
+
+
+                    string tableBazar = "bazar";
+
+                    var columnsBazar = new Dictionary<string, string>
+                    {
+                        { "id", "INTEGER PRIMARY KEY" },
+                        { "bazar_unique", "TEXT" },
+                        { "bazar_name", "TEXT" },
+                        { "open_time", "TEXT" },
+                        { "close_time", "TEXT" },
+                        { "open_start_time", "TEXT" },
+                        { "close_start_time", "TEXT" },
+                        { "total_days", "TEXT" },
+                        { "open_block_time", "TEXT" },
+                        { "close_block_time", "TEXT" },
+                        { "status", "TEXT" },
+                        { "is_madhur_exp", "TEXT" },
+                        { "start_status", "TEXT" },
+                        { "admin_opentime", "TEXT" },
+                        { "admin_closetime", "TEXT" },
+                        { "wa_start_status", "TEXT" },                        
+                        { "bazar_section_id", "TEXT" },                        
+                        { "new_open_time", "TEXT" },                        
+                        { "new_close_time", "TEXT" },                        
+                        { "bazar_code", "TEXT" },                        
+                        { "monday", "TEXT DEFAULT '0'" },                        
+                        { "tuesday", "TEXT DEFAULT '0'" },                        
+                        { "wednesday", "TEXT DEFAULT '0'" },                        
+                        { "Thursday", "TEXT DEFAULT '0'" },                        
+                        { "friday", "TEXT DEFAULT '0'" },                        
+                        { "saturday", "TEXT DEFAULT '0'" },                        
+                        { "sunday", "TEXT DEFAULT '0'" },                        
+                    };
+                    CreateTable(conn, tableBazar, columnsBazar);
 
 
                     conn.Close();

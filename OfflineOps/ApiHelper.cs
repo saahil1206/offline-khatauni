@@ -67,6 +67,177 @@ namespace OfflineOps
         }
 
 
+        public async Task<(bool, string)> SyncBazarData()
+        {
+            bool success = false; string message = string.Empty;
+            try
+            {
+                bool hasMore = true; int retryCount = 0;
+                while (hasMore)
+                {
+                    if (StaticVar.IsTokenExpired(StaticVar.access_token))
+                    {
+                        await RefreshToken();
+                    }
+
+                    using (var client = new HttpClient())
+                    {
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", StaticVar.access_token);
+
+                        string jsonData = JsonConvert.SerializeObject(new { });
+                        StringContent content = new StringContent(jsonData, Encoding.UTF8, "application/json");
+                        var response = await client.PostAsync($"{StaticVar.apiServer}offline/sync-bazar", content);
+                        string jsonResponse = await response.Content.ReadAsStringAsync();
+                        ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(jsonResponse);
+                        if (response.StatusCode == HttpStatusCode.OK)
+                        {
+                            if (apiResponse.status)
+                            {
+                                hasMore = false; success = true;
+
+                                foreach (var item in apiResponse?.results)
+                                {
+                                    updateBazarRecord(item);
+                                }
+                            }
+                            else
+                            {
+                                retryCount++;
+                                if (retryCount > 5)
+                                {
+                                    hasMore = false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            retryCount++;
+                            if (retryCount > 5)
+                            {
+                                hasMore = false;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                message = ex.Message;
+            }
+            return (success, message);
+        }
+
+        private bool updateBazarRecord(dynamic item)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(DatabaseManager.ConnectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // Single upsert query for bazar table with day columns
+                            string upsertBazarQuery = @"
+                          INSERT INTO bazar (
+                              id, bazar_unique, bazar_name, open_time, close_time,
+                              open_start_time, close_start_time, total_days, open_block_time,
+                              close_block_time, status, is_madhur_exp, start_status,
+                              admin_opentime, admin_closetime, wa_start_status, bazar_section_id,
+                              new_open_time, new_close_time, bazar_code,
+                              monday, tuesday, wednesday, Thursday, friday, saturday, sunday
+                          ) VALUES (
+                              @id, @bazar_unique, @bazar_name, @open_time, @close_time,
+                              @open_start_time, @close_start_time, @total_days, @open_block_time,
+                              @close_block_time, @status, @is_madhur_exp, @start_status,
+                              @admin_opentime, @admin_closetime, @wa_start_status, @bazar_section_id,
+                              @new_open_time, @new_close_time, @bazar_code,
+                              @monday, @tuesday, @wednesday, @Thursday, @friday, @saturday, @sunday
+                          )
+                          ON CONFLICT(id) DO UPDATE SET
+                              bazar_unique = excluded.bazar_unique,
+                              bazar_name = excluded.bazar_name,
+                              open_time = excluded.open_time,
+                              close_time = excluded.close_time,
+                              open_start_time = excluded.open_start_time,
+                              close_start_time = excluded.close_start_time,
+                              total_days = excluded.total_days,
+                              open_block_time = excluded.open_block_time,
+                              close_block_time = excluded.close_block_time,
+                              status = excluded.status,
+                              is_madhur_exp = excluded.is_madhur_exp,
+                              start_status = excluded.start_status,
+                              admin_opentime = excluded.admin_opentime,
+                              admin_closetime = excluded.admin_closetime,
+                              wa_start_status = excluded.wa_start_status,
+                              bazar_section_id = excluded.bazar_section_id,
+                              new_open_time = excluded.new_open_time,
+                              new_close_time = excluded.new_close_time,
+                              bazar_code = excluded.bazar_code,
+                              monday = excluded.monday,
+                              tuesday = excluded.tuesday,
+                              wednesday = excluded.wednesday,
+                              Thursday = excluded.Thursday,
+                              friday = excluded.friday,
+                              saturday = excluded.saturday,
+                              sunday = excluded.sunday";
+
+                            using (var cmd = new SQLiteCommand(upsertBazarQuery, connection, transaction))
+                            {
+                                // Main bazar fields
+                                cmd.Parameters.AddWithValue("@id", (long)item.id);
+                                cmd.Parameters.AddWithValue("@bazar_unique", item.bazar_unique?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@bazar_name", item.bazar_name?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@open_time", item.open_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@close_time", item.close_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@open_start_time", item.open_start_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@close_start_time", item.close_start_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@total_days", item.total_days?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@open_block_time", item.open_block_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@close_block_time", item.close_block_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@status", item.status?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@is_madhur_exp", item.is_madhur_exp?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@start_status", item.start_status?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@admin_opentime", item.admin_opentime?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@admin_closetime", item.admin_closetime?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@wa_start_status", item.wa_start_status?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@bazar_section_id", item.bazar_section_id?.ToString() ?? "1");
+                                cmd.Parameters.AddWithValue("@new_open_time", item.new_open_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@new_close_time", item.new_close_time?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@bazar_code", item.bazar_code?.ToString() ?? "");
+
+                                // Day fields from nested days object
+                                cmd.Parameters.AddWithValue("@monday", item.days?.monday?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@tuesday", item.days?.tuesday?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@wednesday", item.days?.wednesday?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@Thursday", item.days?.Thursday?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@friday", item.days?.friday?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@saturday", item.days?.saturday?.ToString() ?? "0");
+                                cmd.Parameters.AddWithValue("@sunday", item.days?.sunday?.ToString() ?? "0");
+
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error updating bazar record: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database error in updateBazarRecord: {ex.Message}");
+            }
+            return false;
+        }
+
+
         public async Task<(bool, string)> SyncPlayerData(List<long> arrayList)
         {
             bool success = false; string message = string.Empty;
@@ -97,10 +268,11 @@ namespace OfflineOps
                                 if (total_pages <= pageIndex) { hasMore = false; success = true; }
                                 pageIndex = pageIndex + 1;
 
+                                string sync_date = (string)apiResponse?.results?.sync_date;
+
                                 foreach (var item in apiResponse?.results?.data)
                                 {
-
-                                    updateUserRecord(item);
+                                    updateUserRecord(item, sync_date);
                                 }
                             }
                             else
@@ -131,8 +303,7 @@ namespace OfflineOps
             return (success, message);
         }
 
-
-        private bool updateUserRecord(PlayerData itm)
+        private bool updateUserRecord(PlayerData itm, string sync_date)
         {
             using (var connection = new SQLiteConnection(DatabaseManager.ConnectionString))
             {
@@ -145,10 +316,10 @@ namespace OfflineOps
                         string upsertUserQuery = @"
                           INSERT INTO users (id, username, contact, balance, aakda_total, aakda_exposure,
                                             pana_total, pana_exposure, group_pana_total, group_pana_exposure,
-                                            jodi_total, jodi_exposure, credit_amt, apc_amount, profit_loss)
+                                            jodi_total, jodi_exposure, credit_amt, apc_amount, profit_loss, sync_date)
                           VALUES (@id, @username, @contact, @balance, @aakda_total, @aakda_exposure,
                                  @pana_total, @pana_exposure, @group_pana_total, @group_pana_exposure,
-                                 @jodi_total, @jodi_exposure, @credit_amt, @apc_amount, @profit_loss)
+                                 @jodi_total, @jodi_exposure, @credit_amt, @apc_amount, @profit_loss, @sync_date)
                           ON CONFLICT(id) DO UPDATE SET
                               username = excluded.username,
                               contact = excluded.contact,
@@ -162,8 +333,9 @@ namespace OfflineOps
                               jodi_total = excluded.jodi_total,
                               jodi_exposure = excluded.jodi_exposure,
                               credit_amt = excluded.credit_amt,
-                              apc_amount = excluded.apc_amount,
-                              profit_loss = excluded.profit_loss";
+                              apc_amount = excluded.apc_amount,                              
+                              profit_loss = excluded.profit_loss,
+                              sync_date = excluded.sync_date";
                         using (var cmd = new SQLiteCommand(upsertUserQuery, connection, transaction))
                         {
                             cmd.Parameters.AddWithValue("@id", itm.id);
@@ -181,6 +353,7 @@ namespace OfflineOps
                             cmd.Parameters.AddWithValue("@credit_amt", itm.credit_amt);
                             cmd.Parameters.AddWithValue("@apc_amount", itm.apc_amount);
                             cmd.Parameters.AddWithValue("@profit_loss", itm.profit_loss);
+                            cmd.Parameters.AddWithValue("@sync_date", sync_date);
                             cmd.ExecuteNonQuery();
                         }
                         // 2. Get existing games for this user from database
@@ -246,5 +419,6 @@ namespace OfflineOps
             }
             return false;
         }
+
     }
 }

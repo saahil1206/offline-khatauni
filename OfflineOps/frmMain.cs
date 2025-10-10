@@ -21,7 +21,9 @@ namespace OfflineOps
         private async void frmMain_Load(object sender, EventArgs e)
         {
             ApiHelper apiHelper = new ApiHelper();
-           await apiHelper.SyncPlayerData(null);
+            
+            await apiHelper.SyncBazarData();
+            await apiHelper.SyncPlayerData(null);
         }
 
         protected override void WndProc(ref Message message)
