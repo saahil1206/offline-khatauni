@@ -17,6 +17,13 @@ namespace OfflineOps
             InitializeComponent();
             this.Load += frmMain_Load;
             deActivateToolStripMenuItem.Click += deActivateToolStripMenuItem_Click;
+            bazarsToolStripMenuItem.Click += bazarsToolStripMenuItem_Click;
+        }
+
+        private void bazarsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            frmBazar frm = new frmBazar();
+            frm.ShowDialog();
         }
 
         private void deActivateToolStripMenuItem_Click(object sender, EventArgs e)
