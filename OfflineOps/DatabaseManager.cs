@@ -29,6 +29,15 @@ namespace OfflineOps
                 {
                     conn.Open();
 
+                    string tableLoginToken = "login_token";
+                    var columnsLoginToken = new Dictionary<string, string>
+                    {
+                        { "access_token", "TEXT NOT NULL" },
+                        { "refresh_token", "TEXT NOT NULL" },                     
+                    };
+                    CreateTable(conn, tableLoginToken, columnsLoginToken);
+
+
                     string tableName = "Users";
 
                     var columns = new Dictionary<string, string>

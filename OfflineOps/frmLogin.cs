@@ -64,33 +64,40 @@ namespace OfflineOps
                     string jsonData = JsonConvert.SerializeObject(data);
                     StringContent content = new StringContent(jsonData, Encoding.UTF8, "application/json");
 
-                    var response = await client.PostAsync($"{StaticVar.apiServer}", content);
+                    var response = await client.PostAsync($"{StaticVar.apiServer}account/login", content);
                     string jsonResponse = await response.Content.ReadAsStringAsync();
+                    ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(jsonResponse);
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
-
+                        if (apiResponse.status)
+                        {
+                            string access_token = (string)apiResponse?.results?.access_token;
+                            string refresh_token = (string)apiResponse?.results?.refresh_token;
+                            if (LicenseManager.Activate(username, access_token, refresh_token))
+                            {
+                                MessageBox.Show("Application activated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                this.DialogResult = DialogResult.OK;
+                                this.Close();
+                            }
+                            else
+                            {
+                                MessageBox.Show("Unable to save license, Please try again.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                        }
+                        else
+                        {
+                            MessageBox.Show(apiResponse.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
                     }
                     else
                     {
-
+                        MessageBox.Show(apiResponse.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            string access_key = username;
-
-            if (LicenseManager.Activate(username, access_key))
-            {
-                MessageBox.Show("Application activated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-            }
-            else
-            {
-                MessageBox.Show("Unable to save license, Please try again.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

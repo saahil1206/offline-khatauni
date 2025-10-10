@@ -20,6 +20,12 @@ namespace OfflineOps
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
+            if (!DatabaseManager.Initialize())
+            {
+                SingleInstance.Stop();
+                return;
+            }
+
             if (!LicenseManager.IsActivated())
             {
                 frmLogin _frmLogin = new frmLogin();
@@ -30,12 +36,6 @@ namespace OfflineOps
                     SingleInstance.Stop();
                     return;
                 }
-            }
-
-            if (!DatabaseManager.Initialize())
-            {
-                SingleInstance.Stop();
-                return;
             }
 
             Application.Run(new frmMain());

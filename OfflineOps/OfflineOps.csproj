@@ -110,7 +110,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ApiHelper.cs" />
     <Compile Include="DatabaseManager.cs" />
+    <Compile Include="DataModels.cs" />
     <Compile Include="SingleInstance.cs" />
     <Compile Include="frmLogin.cs">
       <SubType>Form</SubType>

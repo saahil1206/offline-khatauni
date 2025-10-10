@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -11,7 +13,7 @@ namespace OfflineOps
 {
     public class LicenseManager
     {
-        private const string LICENSE_KEY = "OfflineOps";
+        private const string LICENSE_KEY = "OfflineOpsaa";
         private const string REGISTRY_PATH = @"SOFTWARE\OfflineOps";
 
         public static bool IsActivated()
@@ -21,19 +23,67 @@ namespace OfflineOps
                 return false;
 
             // Verify the license is valid for this machine
-            return ValidateLicense(storedLicense);
+            SQLiteCommand cmd = new SQLiteCommand("SELECT access_token, refresh_token FROM login_token"); cmd.CommandType = CommandType.Text;
+            DatabaseHelper databaseHelper = new DatabaseHelper(); DataTable dt = databaseHelper.Read(cmd);
+            if (dt.Rows.Count > 0)
+            {
+                StaticVar.access_token = dt.Rows[0]["access_token"].ToString();
+                StaticVar.refresh_token = dt.Rows[0]["refresh_token"].ToString();
+                return ValidateLicense(storedLicense);
+            }
+            return false;
         }
 
-        public static bool Activate(string username, string access_key)
+        public static bool Activate(string username, string access_token, string refresh_token)
         {
             // Get machine fingerprint
             string machineId = MachineFingerprint.GetMachineId();
             // Create encrypted license
-            string license = CreateLicense(username, machineId, access_key);
+            string license = CreateLicense(username, machineId, username);
 
+            SQLiteCommand cmd = new SQLiteCommand("SELECT 1 FROM login_token"); cmd.CommandType = CommandType.Text;
+            DatabaseHelper databaseHelper = new DatabaseHelper(); DataTable dt = databaseHelper.Read(cmd);
+            int i = 0;
+            if (dt.Rows.Count > 0)
+            {
+                cmd = new SQLiteCommand("UPDATE login_token SET access_token = @access_token, refresh_token = @refresh_token"); cmd.CommandType = CommandType.Text;
+                cmd.Parameters.Add("@access_token", DbType.String, -1).Value = access_token;
+                cmd.Parameters.Add("@refresh_token", DbType.String, -1).Value = refresh_token;
+                i = databaseHelper.Update(cmd);
+            }
+            else
+            {
+                cmd = new SQLiteCommand("INSERT INTO login_token(access_token, refresh_token)VALUES(@access_token, @refresh_token)"); cmd.CommandType = CommandType.Text;
+                cmd.Parameters.Add("@access_token", DbType.String, -1).Value = access_token;
+                cmd.Parameters.Add("@refresh_token", DbType.String, -1).Value = refresh_token;
+                i = databaseHelper.Update(cmd);
+            }
             // Store in registry
-            return StoreLicense(license);
+            return StoreLicense(license) && i > 0;
         }
+
+        public static bool UpdateTokens(string access_token, string refresh_token)
+        {
+            SQLiteCommand cmd = new SQLiteCommand("SELECT 1 FROM login_token"); cmd.CommandType = CommandType.Text;
+            DatabaseHelper databaseHelper = new DatabaseHelper(); DataTable dt = databaseHelper.Read(cmd);
+            int i = 0;
+            if (dt.Rows.Count > 0)
+            {
+                cmd = new SQLiteCommand("UPDATE login_token SET access_token = @access_token, refresh_token = @refresh_token"); cmd.CommandType = CommandType.Text;
+                cmd.Parameters.Add("@access_token", DbType.String, -1).Value = access_token;
+                cmd.Parameters.Add("@refresh_token", DbType.String, -1).Value = refresh_token;
+                i = databaseHelper.Update(cmd);
+            }
+            else
+            {
+                cmd = new SQLiteCommand("INSERT INTO login_token(access_token, refresh_token)VALUES(@access_token, @refresh_token)"); cmd.CommandType = CommandType.Text;
+                cmd.Parameters.Add("@access_token", DbType.String, -1).Value = access_token;
+                cmd.Parameters.Add("@refresh_token", DbType.String, -1).Value = refresh_token;
+                i = databaseHelper.Update(cmd);
+            }
+            return i > 0;
+        }
+
 
         public static bool DeActivate()
         {
