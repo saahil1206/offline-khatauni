@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Data;
+using System.Data.SQLite;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -16,6 +18,27 @@ namespace OfflineOps
             this.Load += frmBazar_Load;
             this.FormClosing += frmBazar_FormClosing;
             btnSync.Click += btnSync_Click;
+
+        }
+
+        protected override void WndProc(ref Message message)
+        {
+            if (message.Msg == SingleInstance.WM_SHOWFIRSTINSTANCE)
+            {
+                this.WindowState = FormWindowState.Normal;
+                WinApi.ShowToFront(this.Handle);
+            }
+            base.WndProc(ref message);
+        }
+
+        protected override bool ProcessDialogKey(Keys keyData)
+        {
+            if (Form.ModifierKeys == Keys.None && keyData == Keys.Escape)
+            {
+                this.DialogResult = System.Windows.Forms.DialogResult.Cancel; this.Close();
+                return true;
+            }
+            return base.ProcessDialogKey(keyData);
         }
 
         private void frmBazar_FormClosing(object sender, FormClosingEventArgs e)
@@ -96,7 +119,21 @@ namespace OfflineOps
 
         private void LoadBazarData()
         {
-
+            SQLiteCommand cmd = new SQLiteCommand("SELECT * FROM bazar"); cmd.CommandType = CommandType.Text;
+            DatabaseHelper dbHelper = new DatabaseHelper(); DataTable dt = dbHelper.Read(cmd);
+            for (int i = 0; i < dt.Columns.Count; i++) { dt.Columns[i].ReadOnly = false; }
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                dt.Rows[i]["monday"] = (dt.Rows[i]["monday"]?.ToString() == "1" ? "Y" : "N");
+                dt.Rows[i]["tuesday"] = (dt.Rows[i]["tuesday"]?.ToString() == "1" ? "Y" : "N");
+                dt.Rows[i]["wednesday"] = (dt.Rows[i]["wednesday"]?.ToString() == "1" ? "Y" : "N");
+                dt.Rows[i]["Thursday"] = (dt.Rows[i]["Thursday"]?.ToString() == "1" ? "Y" : "N");
+                dt.Rows[i]["friday"] = (dt.Rows[i]["friday"]?.ToString() == "1" ? "Y" : "N");
+                dt.Rows[i]["saturday"] = (dt.Rows[i]["saturday"]?.ToString() == "1" ? "Y" : "N");
+                dt.Rows[i]["sunday"] = (dt.Rows[i]["sunday"]?.ToString() == "1" ? "Y" : "N");
+            }
+            txtDgv.AutoGenerateColumns = false;
+            txtDgv.DataSource = dt;
         }
     }
 }
