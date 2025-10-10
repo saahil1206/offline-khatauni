@@ -33,14 +33,14 @@ namespace OfflineOps
                     var columnsLoginToken = new Dictionary<string, string>
                     {
                         { "access_token", "TEXT NOT NULL" },
-                        { "refresh_token", "TEXT NOT NULL" },                     
+                        { "refresh_token", "TEXT NOT NULL" },
                     };
                     CreateTable(conn, tableLoginToken, columnsLoginToken);
 
 
-                    string tableName = "users";
+                    string tableUsers = "users";
 
-                    var columns = new Dictionary<string, string>
+                    var columnsUsers = new Dictionary<string, string>
                     {
                         { "id", "INTEGER PRIMARY KEY" },
                         { "username", "TEXT" },
@@ -58,8 +58,16 @@ namespace OfflineOps
                         { "apc_amount", "TEXT DEFAULT '0'" },
                         { "profit_loss", "TEXT DEFAULT '0'" },
                     };
-                    CreateTable(conn, tableName, columns);
+                    CreateTable(conn, tableUsers, columnsUsers);
 
+
+                    string tableUserGames = "user_games";
+                    var columnsUserGames = new Dictionary<string, string>
+                    {
+                        { "user_id", "INTEGER NOT NULL" },
+                        { "game_id", "INTEGER NOT NULL" },
+                    };
+                    CreateTable(conn, tableUserGames, columnsUserGames);
 
 
                     conn.Close();
