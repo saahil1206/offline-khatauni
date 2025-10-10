@@ -16,12 +16,23 @@ namespace OfflineOps
         {
             InitializeComponent();
             this.Load += frmMain_Load;
+            deActivateToolStripMenuItem.Click += deActivateToolStripMenuItem_Click;
+        }
+
+        private void deActivateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DialogResult dr = MessageBox.Show("Are you sure to De-Activate Application.", "Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
+            if (dr == DialogResult.Yes)
+            {
+                LicenseManager.DeActivate();
+                Application.Exit();
+            }
         }
 
         private async void frmMain_Load(object sender, EventArgs e)
         {
             ApiHelper apiHelper = new ApiHelper();
-            
+
             await apiHelper.SyncBazarData();
             await apiHelper.SyncPlayerData(null);
         }

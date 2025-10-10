@@ -28,7 +28,43 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.menuStrip1 = new System.Windows.Forms.MenuStrip();
+            this.bazarsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.playersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.deActivateToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
+            // 
+            // menuStrip1
+            // 
+            this.menuStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
+            this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.bazarsToolStripMenuItem,
+            this.playersToolStripMenuItem,
+            this.deActivateToolStripMenuItem});
+            this.menuStrip1.Location = new System.Drawing.Point(0, 0);
+            this.menuStrip1.Name = "menuStrip1";
+            this.menuStrip1.Size = new System.Drawing.Size(1179, 28);
+            this.menuStrip1.TabIndex = 0;
+            this.menuStrip1.Text = "menuStrip1";
+            // 
+            // bazarsToolStripMenuItem
+            // 
+            this.bazarsToolStripMenuItem.Name = "bazarsToolStripMenuItem";
+            this.bazarsToolStripMenuItem.Size = new System.Drawing.Size(66, 24);
+            this.bazarsToolStripMenuItem.Text = "Bazars";
+            // 
+            // playersToolStripMenuItem
+            // 
+            this.playersToolStripMenuItem.Name = "playersToolStripMenuItem";
+            this.playersToolStripMenuItem.Size = new System.Drawing.Size(69, 24);
+            this.playersToolStripMenuItem.Text = "Players";
+            // 
+            // deActivateToolStripMenuItem
+            // 
+            this.deActivateToolStripMenuItem.Name = "deActivateToolStripMenuItem";
+            this.deActivateToolStripMenuItem.Size = new System.Drawing.Size(102, 24);
+            this.deActivateToolStripMenuItem.Text = "De-Activate";
             // 
             // frmMain
             // 
@@ -36,18 +72,28 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(1179, 690);
+            this.Controls.Add(this.menuStrip1);
             this.DoubleBuffered = true;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MainMenuStrip = this.menuStrip1;
             this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.MaximizeBox = false;
             this.Name = "frmMain";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Dashboard";
+            this.menuStrip1.ResumeLayout(false);
+            this.menuStrip1.PerformLayout();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
         #endregion
+
+        private System.Windows.Forms.MenuStrip menuStrip1;
+        private System.Windows.Forms.ToolStripMenuItem bazarsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem playersToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem deActivateToolStripMenuItem;
     }
 }
 

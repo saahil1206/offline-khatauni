@@ -75,6 +75,8 @@ namespace OfflineOps
                             string refresh_token = (string)apiResponse?.results?.refresh_token;
                             if (LicenseManager.Activate(username, access_token, refresh_token))
                             {
+                                StaticVar.access_token = access_token;
+                                StaticVar.refresh_token = refresh_token;
                                 MessageBox.Show("Application activated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 this.DialogResult = DialogResult.OK;
                                 this.Close();
