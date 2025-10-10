@@ -38,20 +38,25 @@ namespace OfflineOps
                     CreateTable(conn, tableLoginToken, columnsLoginToken);
 
 
-                    string tableName = "Users";
+                    string tableName = "users";
 
                     var columns = new Dictionary<string, string>
                     {
-                        { "UserId", "INTEGER PRIMARY KEY AUTOINCREMENT" },
-                        { "Username", "TEXT NOT NULL UNIQUE" },
-                        { "Password", "TEXT NOT NULL" },
-                        { "FullName", "TEXT" },
-                        { "Email", "TEXT" },
-                        { "Role", "TEXT DEFAULT 'User'" },
-                        { "IsActive", "INTEGER DEFAULT 1" },
-                        { "CreatedDate", "TEXT DEFAULT CURRENT_TIMESTAMP" },
-                        { "LastLoginDate", "TEXT" },
-                        { "MachineId", "TEXT" }
+                        { "id", "INTEGER PRIMARY KEY" },
+                        { "username", "TEXT" },
+                        { "contact", "TEXT" },
+                        { "balance", "TEXT DEFAULT '0'" },
+                        { "aakda_total", "TEXT DEFAULT '0'" },
+                        { "aakda_exposure", "TEXT DEFAULT '0'" },
+                        { "pana_total", "TEXT DEFAULT '0'" },
+                        { "pana_exposure", "TEXT DEFAULT '0'" },
+                        { "group_pana_total", "TEXT DEFAULT '0'" },
+                        { "group_pana_exposure", "TEXT DEFAULT '0'" },
+                        { "jodi_total", "TEXT DEFAULT '0'" },
+                        { "jodi_exposure", "TEXT DEFAULT '0'" },
+                        { "credit_amt", "TEXT DEFAULT '0'" },
+                        { "apc_amount", "TEXT DEFAULT '0'" },
+                        { "profit_loss", "TEXT DEFAULT '0'" },
                     };
                     CreateTable(conn, tableName, columns);
 
