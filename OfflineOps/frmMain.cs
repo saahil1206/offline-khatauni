@@ -18,13 +18,49 @@ namespace OfflineOps
             this.Load += frmMain_Load;
             deActivateToolStripMenuItem.Click += deActivateToolStripMenuItem_Click;
             bazarsToolStripMenuItem.Click += bazarsToolStripMenuItem_Click;
+            playersToolStripMenuItem.Click += PlayersToolStripMenuItem_Click; ;
+        }
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            // Ctrl + B
+            if (keyData == (Keys.Control | Keys.B))
+            {
+                OpenBazarWindow();
+                return true;
+            }
+
+            // Ctrl + P
+            if (keyData == (Keys.Control | Keys.P))
+            {
+                OpenPlayerWindow();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void PlayersToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenPlayerWindow();
         }
 
         private void bazarsToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            OpenBazarWindow();
+        }
+
+        private void OpenBazarWindow()
+        {
             frmBazar frm = new frmBazar();
             frm.ShowDialog();
         }
+
+        private void OpenPlayerWindow()
+        {
+            frmPlayer frm = new frmPlayer();
+            frm.ShowDialog();
+        }
+
 
         private void deActivateToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -52,6 +88,11 @@ namespace OfflineOps
                 WinApi.ShowToFront(this.Handle);
             }
             base.WndProc(ref message);
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }

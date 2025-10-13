@@ -1,10 +1,11 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 
 namespace OfflineOps
 {
@@ -48,6 +49,20 @@ namespace OfflineOps
         public static DateTime getCurrDateTime()
         {
             return DateTime.UtcNow.AddMinutes(330);
+        }
+
+        public static string ConvertToAmPm(string time24)
+        {
+            if (DateTime.TryParseExact(time24, "HH:mm:ss",
+                                       CultureInfo.InvariantCulture,
+                                       DateTimeStyles.None, out DateTime time))
+            {
+                return time.ToString("hh:mm tt", CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                throw new FormatException("Invalid time format. Expected format: HH:mm:ss");
+            }
         }
 
         public static DateTime getGameCurrDate()

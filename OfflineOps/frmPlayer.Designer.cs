@@ -1,6 +1,6 @@
 ﻿namespace OfflineOps
 {
-    partial class frmBazar
+    partial class frmPlayer
     {
         /// <summary>
         /// Required designer variable.
@@ -31,7 +31,7 @@
             this.panel1 = new System.Windows.Forms.Panel();
             this.btnSync = new System.Windows.Forms.Button();
             this.panel2 = new System.Windows.Forms.Panel();
-            this.txtDgv = new System.Windows.Forms.DataGridView();
+            this.playerDgv = new System.Windows.Forms.DataGridView();
             this.Column1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -42,49 +42,51 @@
             this.Column8 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column9 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column10 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Column11 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Column13 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Column14 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Column15 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Column12 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.panel1.SuspendLayout();
             this.panel2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.txtDgv)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.playerDgv)).BeginInit();
             this.SuspendLayout();
             // 
             // panel1
             // 
             this.panel1.Controls.Add(this.btnSync);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel1.Location = new System.Drawing.Point(0, 399);
-            this.panel1.Margin = new System.Windows.Forms.Padding(2);
+            this.panel1.Location = new System.Drawing.Point(0, 400);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(834, 50);
+            this.panel1.Size = new System.Drawing.Size(800, 50);
             this.panel1.TabIndex = 0;
             // 
             // btnSync
             // 
-            this.btnSync.Location = new System.Drawing.Point(725, 14);
-            this.btnSync.Margin = new System.Windows.Forms.Padding(2);
+            this.btnSync.Location = new System.Drawing.Point(687, 15);
             this.btnSync.Name = "btnSync";
             this.btnSync.Size = new System.Drawing.Size(98, 25);
-            this.btnSync.TabIndex = 0;
+            this.btnSync.TabIndex = 1;
             this.btnSync.Text = "Sync With Live";
             this.btnSync.UseVisualStyleBackColor = true;
             // 
             // panel2
             // 
-            this.panel2.Controls.Add(this.txtDgv);
+            this.panel2.Controls.Add(this.playerDgv);
             this.panel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel2.Location = new System.Drawing.Point(0, 0);
-            this.panel2.Margin = new System.Windows.Forms.Padding(2);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(834, 399);
+            this.panel2.Size = new System.Drawing.Size(800, 400);
             this.panel2.TabIndex = 1;
             // 
-            // txtDgv
+            // playerDgv
             // 
-            this.txtDgv.AllowUserToAddRows = false;
-            this.txtDgv.AllowUserToDeleteRows = false;
-            this.txtDgv.BackgroundColor = System.Drawing.Color.White;
-            this.txtDgv.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.txtDgv.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.txtDgv.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.playerDgv.AllowUserToAddRows = false;
+            this.playerDgv.AllowUserToDeleteRows = false;
+            this.playerDgv.BackgroundColor = System.Drawing.Color.White;
+            this.playerDgv.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.playerDgv.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.playerDgv.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.Column1,
             this.Column2,
             this.Column3,
@@ -94,128 +96,143 @@
             this.Column7,
             this.Column8,
             this.Column9,
-            this.Column10});
-            this.txtDgv.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.txtDgv.Location = new System.Drawing.Point(0, 0);
-            this.txtDgv.Margin = new System.Windows.Forms.Padding(2);
-            this.txtDgv.Name = "txtDgv";
-            this.txtDgv.ReadOnly = true;
-            this.txtDgv.RowHeadersWidth = 51;
-            this.txtDgv.RowTemplate.Height = 24;
-            this.txtDgv.Size = new System.Drawing.Size(834, 399);
-            this.txtDgv.TabIndex = 0;
+            this.Column10,
+            this.Column11,
+            this.Column13,
+            this.Column14,
+            this.Column15,
+            this.Column12});
+            this.playerDgv.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.playerDgv.Location = new System.Drawing.Point(0, 0);
+            this.playerDgv.Name = "playerDgv";
+            this.playerDgv.ReadOnly = true;
+            this.playerDgv.Size = new System.Drawing.Size(800, 400);
+            this.playerDgv.TabIndex = 0;
             // 
             // Column1
             // 
-            this.Column1.DataPropertyName = "bazar_name";
-            this.Column1.HeaderText = "Bazar";
-            this.Column1.MinimumWidth = 6;
+            this.Column1.DataPropertyName = "username";
+            this.Column1.HeaderText = "Username";
             this.Column1.Name = "Column1";
             this.Column1.ReadOnly = true;
-            this.Column1.Width = 125;
             // 
             // Column2
             // 
-            this.Column2.DataPropertyName = "open_time";
-            this.Column2.HeaderText = "Open Time";
-            this.Column2.MinimumWidth = 6;
+            this.Column2.DataPropertyName = "contact";
+            this.Column2.HeaderText = "Contact";
             this.Column2.Name = "Column2";
             this.Column2.ReadOnly = true;
-            this.Column2.Width = 125;
             // 
             // Column3
             // 
-            this.Column3.DataPropertyName = "close_time";
-            this.Column3.HeaderText = "Close Time";
-            this.Column3.MinimumWidth = 6;
+            this.Column3.DataPropertyName = "balance";
+            this.Column3.HeaderText = "Balance";
             this.Column3.Name = "Column3";
             this.Column3.ReadOnly = true;
-            this.Column3.Width = 125;
             // 
             // Column4
             // 
-            this.Column4.DataPropertyName = "sunday";
-            this.Column4.HeaderText = "Sun";
-            this.Column4.MinimumWidth = 6;
+            this.Column4.DataPropertyName = "aakda_total";
+            this.Column4.HeaderText = "Aakda Total";
             this.Column4.Name = "Column4";
             this.Column4.ReadOnly = true;
-            this.Column4.Width = 125;
             // 
             // Column5
             // 
-            this.Column5.DataPropertyName = "monday";
-            this.Column5.HeaderText = "Mon";
-            this.Column5.MinimumWidth = 6;
+            this.Column5.DataPropertyName = "aakda_exposure";
+            this.Column5.HeaderText = "Aakda Exposure";
             this.Column5.Name = "Column5";
             this.Column5.ReadOnly = true;
-            this.Column5.Width = 125;
             // 
             // Column6
             // 
-            this.Column6.DataPropertyName = "tuesday";
-            this.Column6.HeaderText = "Tue";
-            this.Column6.MinimumWidth = 6;
+            this.Column6.DataPropertyName = "pana_total";
+            this.Column6.HeaderText = "Pana Total";
             this.Column6.Name = "Column6";
             this.Column6.ReadOnly = true;
-            this.Column6.Width = 125;
             // 
             // Column7
             // 
-            this.Column7.DataPropertyName = "wednesday";
-            this.Column7.HeaderText = "Wed";
-            this.Column7.MinimumWidth = 6;
+            this.Column7.DataPropertyName = "pana_exposure";
+            this.Column7.HeaderText = "Pana Exposure";
             this.Column7.Name = "Column7";
             this.Column7.ReadOnly = true;
-            this.Column7.Width = 125;
             // 
             // Column8
             // 
-            this.Column8.DataPropertyName = "Thursday";
-            this.Column8.HeaderText = "Thu";
-            this.Column8.MinimumWidth = 6;
+            this.Column8.DataPropertyName = "group_pana_total";
+            this.Column8.HeaderText = "Group Pana Total";
             this.Column8.Name = "Column8";
             this.Column8.ReadOnly = true;
-            this.Column8.Width = 125;
             // 
             // Column9
             // 
-            this.Column9.DataPropertyName = "friday";
-            this.Column9.HeaderText = "Fri";
-            this.Column9.MinimumWidth = 6;
+            this.Column9.DataPropertyName = "group_pana_exposure";
+            this.Column9.HeaderText = "Group Pana Exposure";
             this.Column9.Name = "Column9";
             this.Column9.ReadOnly = true;
-            this.Column9.Width = 125;
             // 
             // Column10
             // 
-            this.Column10.DataPropertyName = "saturday";
-            this.Column10.HeaderText = "Sat";
-            this.Column10.MinimumWidth = 6;
+            this.Column10.DataPropertyName = "jodi_total";
+            this.Column10.HeaderText = "Jodi Total";
             this.Column10.Name = "Column10";
             this.Column10.ReadOnly = true;
-            this.Column10.Width = 125;
             // 
-            // frmBazar
+            // Column11
+            // 
+            this.Column11.DataPropertyName = "jodi_exposure";
+            this.Column11.HeaderText = "Jodi Exposure";
+            this.Column11.Name = "Column11";
+            this.Column11.ReadOnly = true;
+            // 
+            // Column13
+            // 
+            this.Column13.DataPropertyName = "credit_amt";
+            this.Column13.HeaderText = "Credit Amount";
+            this.Column13.Name = "Column13";
+            this.Column13.ReadOnly = true;
+            // 
+            // Column14
+            // 
+            this.Column14.DataPropertyName = "apc_amount";
+            this.Column14.HeaderText = "Apc Amount";
+            this.Column14.Name = "Column14";
+            this.Column14.ReadOnly = true;
+            // 
+            // Column15
+            // 
+            this.Column15.DataPropertyName = "profit_loss";
+            this.Column15.HeaderText = "Profit/Loss";
+            this.Column15.Name = "Column15";
+            this.Column15.ReadOnly = true;
+            // 
+            // Column12
+            // 
+            this.Column12.DataPropertyName = "sync_date";
+            this.Column12.HeaderText = "Sync Date";
+            this.Column12.Name = "Column12";
+            this.Column12.ReadOnly = true;
+            // 
+            // frmPlayer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(834, 449);
+            this.ClientSize = new System.Drawing.Size(800, 450);
             this.Controls.Add(this.panel2);
             this.Controls.Add(this.panel1);
             this.DoubleBuffered = true;
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
-            this.Margin = new System.Windows.Forms.Padding(2);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.Name = "frmBazar";
+            this.Name = "frmPlayer";
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Bazar - List";
+            this.Text = "Player List";
+            this.Load += new System.EventHandler(this.frmPlayer_Load);
             this.panel1.ResumeLayout(false);
             this.panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.txtDgv)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.playerDgv)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -225,7 +242,7 @@
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.Button btnSync;
         private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.DataGridView txtDgv;
+        private System.Windows.Forms.DataGridView playerDgv;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column1;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column2;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column3;
@@ -236,5 +253,10 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn Column8;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column9;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column10;
+        private System.Windows.Forms.DataGridViewTextBoxColumn Column11;
+        private System.Windows.Forms.DataGridViewTextBoxColumn Column13;
+        private System.Windows.Forms.DataGridViewTextBoxColumn Column14;
+        private System.Windows.Forms.DataGridViewTextBoxColumn Column15;
+        private System.Windows.Forms.DataGridViewTextBoxColumn Column12;
     }
 }

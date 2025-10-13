@@ -1,24 +1,29 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Data.SQLite;
+using System.Drawing;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace OfflineOps
 {
-    public partial class frmBazar : Form
+    public partial class frmPlayer : Form
     {
+
         private bool isSyncInProgress = false;
         private CancellationTokenSource cancellationTokenSource;
 
-        public frmBazar()
+        public frmPlayer()
         {
             InitializeComponent();
-            this.Load += frmBazar_Load;
+            this.Load += frmPlayer_Load;
             this.FormClosing += frmBazar_FormClosing;
             btnSync.Click += btnSync_Click;
-
         }
 
         protected override void WndProc(ref Message message)
@@ -82,17 +87,17 @@ namespace OfflineOps
 
                 (bool success, string message) = await Task.Run(async () =>
                 {
-                    return await apiHelper.SyncBazarData();
+                    return await apiHelper.SyncPlayerData(null);
                 }, cancellationTokenSource.Token);
                 if (success)
                 {
-                    MessageBox.Show("Bazar data synced successfully!", "Success",
+                    MessageBox.Show("Players data synced successfully!", "Success",
                       MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    LoadBazarData(); // Refresh grid
+                    LoadPlayerData(); // Refresh grid
                 }
                 else
                 {
-                    MessageBox.Show("Failed to sync bazar data.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Failed to sync players data.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             catch (OperationCanceledException)
@@ -112,30 +117,18 @@ namespace OfflineOps
             }
         }
 
-        private void frmBazar_Load(object sender, EventArgs e)
+
+        private void frmPlayer_Load(object sender, EventArgs e)
         {
-            LoadBazarData();
+            LoadPlayerData();
         }
 
-        private void LoadBazarData()
+        private void LoadPlayerData()
         {
-            SQLiteCommand cmd = new SQLiteCommand("SELECT * FROM bazar"); cmd.CommandType = CommandType.Text;
+            SQLiteCommand cmd = new SQLiteCommand("SELECT * FROM Users"); cmd.CommandType = CommandType.Text;
             DatabaseHelper dbHelper = new DatabaseHelper(); DataTable dt = dbHelper.Read(cmd);
-            for (int i = 0; i < dt.Columns.Count; i++) { dt.Columns[i].ReadOnly = false; }
-            for (int i = 0; i < dt.Rows.Count; i++)
-            {
-                dt.Rows[i]["open_time"] = StaticVar.ConvertToAmPm(dt.Rows[i]["open_time"]?.ToString());
-                dt.Rows[i]["close_time"] = StaticVar.ConvertToAmPm(dt.Rows[i]["close_time"]?.ToString());
-                dt.Rows[i]["monday"] = (dt.Rows[i]["monday"]?.ToString() == "1" ? "YES" : "NO");
-                dt.Rows[i]["tuesday"] = (dt.Rows[i]["tuesday"]?.ToString() == "1" ? "YES" : "NO");
-                dt.Rows[i]["wednesday"] = (dt.Rows[i]["wednesday"]?.ToString() == "1" ? "YES" : "NO");
-                dt.Rows[i]["Thursday"] = (dt.Rows[i]["Thursday"]?.ToString() == "1" ? "YES" : "NO");
-                dt.Rows[i]["friday"] = (dt.Rows[i]["friday"]?.ToString() == "1" ? "YES" : "NO");
-                dt.Rows[i]["saturday"] = (dt.Rows[i]["saturday"]?.ToString() == "1" ? "YES" : "NO");
-                dt.Rows[i]["sunday"] = (dt.Rows[i]["sunday"]?.ToString() == "1" ? "YES" : "NO");
-            }
-            txtDgv.AutoGenerateColumns = false;
-            txtDgv.DataSource = dt;
+            playerDgv.AutoGenerateColumns = false;
+            playerDgv.DataSource = dt;
         }
     }
 }

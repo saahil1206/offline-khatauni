@@ -44,39 +44,40 @@
             this.deActivateToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(1179, 28);
+            this.menuStrip1.Padding = new System.Windows.Forms.Padding(4, 2, 0, 2);
+            this.menuStrip1.Size = new System.Drawing.Size(884, 24);
             this.menuStrip1.TabIndex = 0;
             this.menuStrip1.Text = "menuStrip1";
             // 
             // bazarsToolStripMenuItem
             // 
             this.bazarsToolStripMenuItem.Name = "bazarsToolStripMenuItem";
-            this.bazarsToolStripMenuItem.Size = new System.Drawing.Size(66, 24);
+            this.bazarsToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
             this.bazarsToolStripMenuItem.Text = "Bazars";
             // 
             // playersToolStripMenuItem
             // 
             this.playersToolStripMenuItem.Name = "playersToolStripMenuItem";
-            this.playersToolStripMenuItem.Size = new System.Drawing.Size(69, 24);
+            this.playersToolStripMenuItem.Size = new System.Drawing.Size(56, 20);
             this.playersToolStripMenuItem.Text = "Players";
             // 
             // deActivateToolStripMenuItem
             // 
             this.deActivateToolStripMenuItem.Name = "deActivateToolStripMenuItem";
-            this.deActivateToolStripMenuItem.Size = new System.Drawing.Size(102, 24);
+            this.deActivateToolStripMenuItem.Size = new System.Drawing.Size(81, 20);
             this.deActivateToolStripMenuItem.Text = "De-Activate";
             // 
             // frmMain
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(1179, 690);
+            this.ClientSize = new System.Drawing.Size(884, 561);
             this.Controls.Add(this.menuStrip1);
             this.DoubleBuffered = true;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MainMenuStrip = this.menuStrip1;
-            this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             this.Name = "frmMain";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Dashboard";
