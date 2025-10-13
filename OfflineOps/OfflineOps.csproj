@@ -111,6 +111,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ApiHelper.cs" />
+    <Compile Include="ComboItem.cs" />
     <Compile Include="DatabaseManager.cs" />
     <Compile Include="DataModels.cs" />
     <Compile Include="frmBazar.cs">
