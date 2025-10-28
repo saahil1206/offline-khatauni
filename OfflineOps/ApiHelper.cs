@@ -281,12 +281,13 @@ namespace OfflineOps
                                 string tableType = row["type"].ToString();
 
                                 string updateQuery = (tableType.ToLower() == "group")
-                                    ? "UPDATE group_trans SET server_flag = 1 WHERE id = @id"
-                                    : "UPDATE single_digit SET server_flag = 1 WHERE id = @id";
+                                    ? "UPDATE group_trans SET server_flag = 1, upload_date = @upload_date WHERE id = @id"
+                                    : "UPDATE single_digit SET server_flag = 1, upload_date = @upload_date WHERE id = @id";
 
                                 using (var updateCmd = new SQLiteCommand(updateQuery))
                                 {
                                     updateCmd.Parameters.AddWithValue("@id", id);
+                                    updateCmd.Parameters.AddWithValue("@upload_date", StaticVar.getCurrDateTime().ToString("yyyy-MM-dd HH:mm:ss"));
                                     db.Update(updateCmd);
                                 }
                             }
