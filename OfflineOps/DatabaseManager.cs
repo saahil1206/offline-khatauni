@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace OfflineOps
@@ -70,12 +72,67 @@ namespace OfflineOps
                     };
                     CreateTable(conn, tableUserGames, columnsUserGames);
 
+                    string tableCommands = "li_com";
+
+                    var columnsCommands = new Dictionary<string, string>
+                    {
+                        { "com_id", "BIGINT PRIMARY KEY" },
+                        { "com_display_name", "TEXT" },
+                        { "com_name", "TEXT" },
+                        { "com_function", "TEXT" },
+                        { "game_name", "TEXT" },
+                        { "com_min_no", "TEXT" },
+                        { "com_max_no", "TEXT" },
+                        { "com_status", "TEXT DEFAULT '0'" },
+
+                    };
+                    CreateTable(conn, tableCommands, columnsCommands);
+                    
+                    string tableLiPana = "li_pana";
+
+                    var columnsLiPana = new Dictionary<string, string>
+                    {
+                        { "id", "BIGINT PRIMARY KEY" },
+                        { "pana", "TEXT" },
+                        { "group_id", "TEXT" },
+                        { "number_id", "TEXT" },
+                        { "number_main", "TEXT" },
+                        { "status", "TEXT DEFAULT '0'" },
+                        { "pana_type", "TEXT" },
+                        { "check_motor", "TEXT" },
+                        { "check_family", "TEXT" },
+                        { "check_chipke_bikhre", "TEXT" },
+                        { "check_run", "TEXT" },
+                        { "check_center", "TEXT" },
+                        { "check_forgot", "TEXT" },
+
+                    };
+                    CreateTable(conn, tableLiPana, columnsLiPana);
+
+                    //string tableConsoleStr = "console_string";
+
+                    //var columnsConsoleStr = new Dictionary<string, string>
+                    //{
+                    //    { "id", "TEXT PRIMARY KEY" },
+                    //    { "user_id", "BIGINT" },
+                    //    { "bazar_id", "BIGINT" },
+                    //    { "bazar_cat", "TEXT" },
+                    //    { "bet_string", "TEXT" },
+                    //    { "total_amount", "NUMERIC" },
+                    //    { "server_flag", "BIT DEFAULT 0" },
+                    //    { "cancel_status", "BIT DEFAULT 0" },
+                    //    { "game_date", "TEXT" },
+                    //    { "upload_date", "TEXT" },
+                    //    { "created_date", "TEXT" },
+                    //};
+                    //CreateTable(conn, tableConsoleStr, columnsConsoleStr);
+
 
                     string tableBazar = "bazar";
 
                     var columnsBazar = new Dictionary<string, string>
                     {
-                        { "id", "INTEGER PRIMARY KEY" },
+                        { "id", "BIGINT PRIMARY KEY" },
                         { "bazar_unique", "TEXT" },
                         { "bazar_name", "TEXT" },
                         { "open_time", "TEXT" },
@@ -90,20 +147,107 @@ namespace OfflineOps
                         { "start_status", "TEXT" },
                         { "admin_opentime", "TEXT" },
                         { "admin_closetime", "TEXT" },
-                        { "wa_start_status", "TEXT" },                        
-                        { "bazar_section_id", "TEXT" },                        
-                        { "new_open_time", "TEXT" },                        
-                        { "new_close_time", "TEXT" },                        
-                        { "bazar_code", "TEXT" },                        
-                        { "monday", "TEXT DEFAULT '0'" },                        
-                        { "tuesday", "TEXT DEFAULT '0'" },                        
-                        { "wednesday", "TEXT DEFAULT '0'" },                        
-                        { "Thursday", "TEXT DEFAULT '0'" },                        
-                        { "friday", "TEXT DEFAULT '0'" },                        
-                        { "saturday", "TEXT DEFAULT '0'" },                        
-                        { "sunday", "TEXT DEFAULT '0'" },                        
+                        { "wa_start_status", "TEXT" },
+                        { "bazar_section_id", "TEXT" },
+                        { "new_open_time", "TEXT" },
+                        { "new_close_time", "TEXT" },
+                        { "bazar_code", "TEXT" },
+                        { "monday", "TEXT DEFAULT '0'" },
+                        { "tuesday", "TEXT DEFAULT '0'" },
+                        { "wednesday", "TEXT DEFAULT '0'" },
+                        { "Thursday", "TEXT DEFAULT '0'" },
+                        { "friday", "TEXT DEFAULT '0'" },
+                        { "saturday", "TEXT DEFAULT '0'" },
+                        { "sunday", "TEXT DEFAULT '0'" },
                     };
                     CreateTable(conn, tableBazar, columnsBazar);
+
+                    string tableGroupTrans = "group_trans";
+
+                    var columnsGroupTrans = new Dictionary<string, string>
+                    {
+                        { "id", "TEXT PRIMARY KEY" },
+                        { "user_id", "BIGINT" },
+                        { "bazar_id", "BIGINT" },
+                        { "bazar_cat", "TEXT" },
+                        { "game_name", "TEXT" },
+                        { "game_test_name", "TEXT" },
+                        { "aakda_no", "TEXT" },
+                        { "pana_no", "TEXT" },
+                        { "amount", "NUMERIC" },
+                        { "total_amount", "NUMERIC" },
+                        { "server_flag", "BIT DEFAULT 0" },
+                        { "cancel_status", "BIT DEFAULT 0" },
+                        { "game_date", "TEXT" },
+                        { "upload_date", "TEXT" },
+                        { "created_date", "TEXT" },
+                    };
+                    CreateTable(conn, tableGroupTrans, columnsGroupTrans);
+
+                    string tableSingleDigit = "single_digit";
+
+                    var columnsSingleDigit = new Dictionary<string, string>
+                    {
+                        { "id", "TEXT PRIMARY KEY" },
+                        { "user_id", "BIGINT" },
+                        { "bazar_id", "BIGINT" },
+                        { "bazar_cat", "TEXT" },
+                        { "single0", "NUMERIC" },
+                        { "single1", "NUMERIC" },
+                        { "single2", "NUMERIC" },
+                        { "single3", "NUMERIC" },
+                        { "single4", "NUMERIC" },
+                        { "single5", "NUMERIC" },
+                        { "single6", "NUMERIC" },
+                        { "single7", "NUMERIC" },
+                        { "single8", "NUMERIC" },
+                        { "single9", "NUMERIC" },
+                        { "amount", "NUMERIC" },
+                        { "server_flag", "BIT DEFAULT 0" },
+                        { "cancel_status", "BIT DEFAULT 0" },
+                        { "game_date", "TEXT" },
+                        { "upload_date", "TEXT" },
+                        { "created_date", "TEXT" },
+                    };
+                    CreateTable(conn, tableSingleDigit, columnsSingleDigit);
+
+                    string tablePana = "pana";
+
+                    var columnsPana = new Dictionary<string, string>
+                    {
+                        { "id", "TEXT PRIMARY KEY" },
+                        { "group_id", "BIGINT" },
+                        { "user_id", "BIGINT" },
+                        { "bazar_id", "BIGINT" },
+                        { "bazar_cat", "TEXT" },
+                        { "pana", "NUMERIC" },
+                        { "amount", "NUMERIC" },
+                        { "server_flag", "BIT DEFAULT 0" },
+                        { "cancel_status", "BIT DEFAULT 0" },
+                        { "game_date", "TEXT" },
+                        { "upload_date", "TEXT" },
+                        { "created_date", "TEXT" },
+                    };
+                    CreateTable(conn, tablePana, columnsPana);
+
+                    string tableJodi = "jodi";
+
+                    var columnsJodi = new Dictionary<string, string>
+                    {
+                        { "id", "TEXT PRIMARY KEY" },
+                        { "group_id", "BIGINT" },
+                        { "user_id", "BIGINT" },
+                        { "bazar_id", "BIGINT" },
+                        { "bazar_cat", "TEXT" },
+                        { "jodi", "NUMERIC" },
+                        { "amount", "NUMERIC" },
+                        { "server_flag", "BIT DEFAULT 0" },
+                        { "cancel_status", "BIT DEFAULT 0" },
+                        { "game_date", "TEXT" },
+                        { "upload_date", "TEXT" },
+                        { "created_date", "TEXT" },
+                    };
+                    CreateTable(conn, tableJodi, columnsJodi);
 
 
                     conn.Close();
@@ -189,71 +333,77 @@ namespace OfflineOps
         }
     }
 
-    public class DatabaseHelper
+    public class DatabaseHelper : IDisposable
     {
-        public SQLiteConnection GetConnection()
+
+        private readonly SQLiteConnection _connection;
+        private SQLiteTransaction _transaction = null;
+
+        public DatabaseHelper()
         {
-            return new SQLiteConnection(DatabaseManager.ConnectionString);
+            _connection = new SQLiteConnection(DatabaseManager.ConnectionString);
+            _connection.Open();  
         }
+
+        public SQLiteConnection GetConnection() => _connection;
+
+        public void BeginTransaction()
+        {
+            _transaction = _connection.BeginTransaction();
+        }
+
+
+        public void Commit()
+        {
+            _transaction?.Commit();
+            _transaction?.Dispose();
+            _transaction = null;
+        }
+
+        public void Rollback()
+        {
+            _transaction?.Rollback();
+            _transaction?.Dispose();
+            _transaction = null;
+        }
+
 
         public DataTable Read(SQLiteCommand command)
         {
             DataTable dt = new DataTable();
-            try
+            command.Connection = _connection;
+            if (_transaction != null) command.Transaction = _transaction;
+
+            using (var reader = command.ExecuteReader())
             {
-                using (SQLiteConnection conn = GetConnection())
-                {
-                    conn.Open();
-                    command.Connection = conn;
-                    using (var reader = command.ExecuteReader())
-                    {
-                        dt.Load(reader);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Query execution error: {ex.Message}");
+                dt.Load(reader);
             }
             return dt;
         }
 
         public int Update(SQLiteCommand command)
         {
-            int result = 0;
-            try
-            {
-                using (SQLiteConnection conn = GetConnection())
-                {
-                    conn.Open();
-                    command.Connection = conn;
-                    result = command.ExecuteNonQuery();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Non-query execution error: {ex.Message}");
-            }
-            return result;
+            command.Connection = _connection;
+            if (_transaction != null) command.Transaction = _transaction;
+
+            return command.ExecuteNonQuery(); 
         }
 
         public object GetScalar(SQLiteCommand command)
         {
-            object result = null;
-            try
-            {
-                using (SQLiteConnection conn = GetConnection())
-                {
-                    conn.Open();
-                    command.Connection = conn;
-                    result = command.ExecuteScalar();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Scalar execution error: {ex.Message}");
-            }
-            return result;
+            command.Connection = _connection;
+            if (_transaction != null) command.Transaction = _transaction;
+
+            return command.ExecuteScalar();
+        }
+
+        public void Dispose()
+        {
+            _transaction?.Dispose();
+            if (_connection.State == ConnectionState.Open)
+                _connection.Close();
+            _connection.Dispose();
         }
     }
+
 }

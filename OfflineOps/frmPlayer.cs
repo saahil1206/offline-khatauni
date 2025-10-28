@@ -17,6 +17,7 @@ namespace OfflineOps
 
         private bool isSyncInProgress = false;
         private CancellationTokenSource cancellationTokenSource;
+        public event Action OnSyncCompleted;
 
         public frmPlayer()
         {
@@ -92,8 +93,9 @@ namespace OfflineOps
                 if (success)
                 {
                     MessageBox.Show("Players data synced successfully!", "Success",
-                      MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
                     LoadPlayerData(); // Refresh grid
+                    OnSyncCompleted?.Invoke();
                 }
                 else
                 {

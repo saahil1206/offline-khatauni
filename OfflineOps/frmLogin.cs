@@ -38,22 +38,33 @@ namespace OfflineOps
                 this.DialogResult = System.Windows.Forms.DialogResult.Cancel; this.Close();
                 return true;
             }
+
+            if (keyData == Keys.Enter) {
+                btnLogin_Click(btnLogin,EventArgs.Empty); return true;
+            }
+
             return base.ProcessDialogKey(keyData);
         }
 
         private async void btnLogin_Click(object sender, EventArgs e)
         {
+            btnLogin.Text = "Logging in...";
+            btnLogin.Enabled = false;
             string username = txtUserName.Text.Trim();
             string password = txtPassword.Text.Trim();
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
             {
                 MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnLogin.Text = "Login";
+                btnLogin.Enabled = false;
                 return;
             }
             if (!StaticVar.CheckInternetConnection())
             {
                 MessageBox.Show("Internet connection required for login.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnLogin.Text = "Login";
+                btnLogin.Enabled = false;
                 return;
             }
             try
@@ -96,10 +107,14 @@ namespace OfflineOps
                         MessageBox.Show(apiResponse.message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
+                btnLogin.Text = "Login";
+                btnLogin.Enabled = true;
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnLogin.Text = "Login";
+                btnLogin.Enabled = true;
             }
         }
     }

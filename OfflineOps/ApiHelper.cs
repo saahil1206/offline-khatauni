@@ -66,7 +66,6 @@ namespace OfflineOps
             return (success, message);
         }
 
-
         public async Task<(bool, string)> SyncBazarData()
         {
             bool success = false; string message = string.Empty;
@@ -95,9 +94,17 @@ namespace OfflineOps
                             {
                                 hasMore = false; success = true;
 
-                                foreach (var item in apiResponse?.results)
+                                foreach (var item in apiResponse?.results?.bazarData)
                                 {
                                     updateBazarRecord(item);
+                                }
+                                foreach (var item in apiResponse?.results?.comData)
+                                {
+                                    updateComRecord(item);
+                                }
+                                foreach (var item in apiResponse?.results?.liPanaData)
+                                {
+                                    updateLiPanaRecord(item);
                                 }
                             }
                             else
@@ -124,6 +131,183 @@ namespace OfflineOps
             {
                 message = ex.Message;
             }
+            return (success, message);
+        }
+        public async Task<(bool, string)> SyncPlayerData(List<long> arrayList)
+        {
+            bool success = false; string message = string.Empty;
+            try
+            {
+                int pageIndex = 1; bool hasMore = true; int retryCount = 0;
+                while (hasMore)
+                {
+                    if (StaticVar.IsTokenExpired(StaticVar.access_token))
+                    {
+                        await RefreshToken();
+                    }
+                    var data = new { page_index = pageIndex, player_ids = (arrayList?.Count > 0 ? arrayList : null) };
+                    using (var client = new HttpClient())
+                    {
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", StaticVar.access_token);
+
+                        string jsonData = JsonConvert.SerializeObject(data);
+                        StringContent content = new StringContent(jsonData, Encoding.UTF8, "application/json");
+                        var response = await client.PostAsync($"{StaticVar.apiServer}offline/sync-player", content);
+                        string jsonResponse = await response.Content.ReadAsStringAsync();
+                        PlayerResponse apiResponse = JsonConvert.DeserializeObject<PlayerResponse>(jsonResponse);
+                        if (response.StatusCode == HttpStatusCode.OK)
+                        {
+                            if (apiResponse.status)
+                            {
+                                int total_pages = (int)apiResponse?.results?.pager.total_pages;
+                                if (total_pages <= pageIndex) { hasMore = false; success = true; }
+                                pageIndex = pageIndex + 1;
+
+                                string sync_date = (string)apiResponse?.results?.sync_date;
+
+                                foreach (var item in apiResponse?.results?.data)
+                                {
+                                    updateUserRecord(item, sync_date);
+                                }
+                            }
+                            else
+                            {
+                                retryCount++;
+                                if (retryCount > 5)
+                                {
+                                    hasMore = false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            retryCount++;
+                            if (retryCount > 5)
+                            {
+                                hasMore = false;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+
+                message = ex.Message;
+            }
+            return (success, message);
+        }
+
+        public async Task<(bool, string)> SyncLoad()
+        {
+            bool success = false;
+            string message = string.Empty;
+
+            try
+            {
+                int limit = 10;
+                var db = new DatabaseHelper();
+                var payloadList = new List<Dictionary<string, object>>();
+
+                string query = @"
+                   SELECT * FROM (
+                          SELECT 
+                              id, user_id, bazar_id, bazar_cat, game_name, game_test_name,aakda_no, pana_no,
+                              amount, total_amount, server_flag, cancel_status, game_date,
+                              upload_date, created_date, 'GROUP' AS type,
+                              NULL AS single0, NULL AS single1, NULL AS single2, NULL AS single3, NULL AS single4,
+                              NULL AS single5, NULL AS single6, NULL AS single7, NULL AS single8, NULL AS single9
+                          FROM group_trans
+                          WHERE server_flag = 0 AND cancel_status = 0
+
+                          UNION ALL
+
+                          SELECT 
+                              id, user_id, bazar_id, bazar_cat, NULL AS game_name, NULL AS game_test_name,NULL AS aakda_no, NULL AS pana_no,
+                              amount, NULL AS total_amount, server_flag, cancel_status, game_date,
+                              upload_date, created_date, 'SINGLE' AS type,
+                              single0, single1, single2, single3, single4,
+                              single5, single6, single7, single8, single9
+                          FROM single_digit
+                          WHERE server_flag = 0 AND cancel_status = 0
+                      )
+                      ORDER BY created_date
+                      LIMIT @limit;
+                ";
+
+                using (var cmd = new SQLiteCommand(query))
+                {
+                    cmd.Parameters.AddWithValue("@limit", limit);
+                    DataTable dt = db.Read(cmd);
+
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        var rowDict = new Dictionary<string, object>();
+                        foreach (DataColumn col in dt.Columns)
+                            rowDict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
+
+                        payloadList.Add(rowDict);
+                    }
+
+                    if (payloadList.Count == 0)
+                        return (false, "No pending rows to sync.");
+                }
+
+                bool hasMore = true; int retryCount = 0;
+
+                while (hasMore)
+                {
+                    if (StaticVar.IsTokenExpired(StaticVar.access_token))
+                        await RefreshToken();
+
+                    var data = JsonConvert.SerializeObject(payloadList);
+
+                    using (var client = new HttpClient())
+                    {
+                        client.DefaultRequestHeaders.Authorization =
+                            new AuthenticationHeaderValue("Bearer", StaticVar.access_token);
+
+                        var content = new StringContent(data, Encoding.UTF8, "application/json");
+                        var response = await client.PostAsync($"{StaticVar.apiServer}offline/sync-load", content);
+                        string jsonResponse = await response.Content.ReadAsStringAsync();
+
+                        ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(jsonResponse);
+
+                        if (response.StatusCode == HttpStatusCode.OK && apiResponse.status)
+                        {
+                            foreach (var row in payloadList)
+                            {
+                                string id = row["id"].ToString();
+                                string tableType = row["type"].ToString();
+
+                                string updateQuery = (tableType.ToLower() == "group")
+                                    ? "UPDATE group_trans SET server_flag = 1 WHERE id = @id"
+                                    : "UPDATE single_digit SET server_flag = 1 WHERE id = @id";
+
+                                using (var updateCmd = new SQLiteCommand(updateQuery))
+                                {
+                                    updateCmd.Parameters.AddWithValue("@id", id);
+                                    db.Update(updateCmd);
+                                }
+                            }
+
+                            success = true;
+                            message = "Synced successfully";
+                            hasMore = false;
+                        }
+                        else
+                        {
+                            retryCount++;
+                            if (retryCount > 5) hasMore = false;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                message = "Error: " + ex.Message;
+            }
+
             return (success, message);
         }
 
@@ -236,71 +420,139 @@ namespace OfflineOps
             }
             return false;
         }
-
-
-        public async Task<(bool, string)> SyncPlayerData(List<long> arrayList)
+        private bool updateComRecord(dynamic item)
         {
-            bool success = false; string message = string.Empty;
             try
             {
-                int pageIndex = 1; bool hasMore = true; int retryCount = 0;
-                while (hasMore)
+                using (var connection = new SQLiteConnection(DatabaseManager.ConnectionString))
                 {
-                    if (StaticVar.IsTokenExpired(StaticVar.access_token))
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        await RefreshToken();
-                    }
-                    var data = new { page_index = pageIndex, player_ids = (arrayList?.Count > 0 ? arrayList : null) };
-                    using (var client = new HttpClient())
-                    {
-                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", StaticVar.access_token);
-
-                        string jsonData = JsonConvert.SerializeObject(data);
-                        StringContent content = new StringContent(jsonData, Encoding.UTF8, "application/json");
-                        var response = await client.PostAsync($"{StaticVar.apiServer}offline/sync-player", content);
-                        string jsonResponse = await response.Content.ReadAsStringAsync();
-                        PlayerResponse apiResponse = JsonConvert.DeserializeObject<PlayerResponse>(jsonResponse);
-                        if (response.StatusCode == HttpStatusCode.OK)
+                        try
                         {
-                            if (apiResponse.status)
-                            {
-                                int total_pages = (int)apiResponse?.results?.pager.total_pages;
-                                if (total_pages <= pageIndex) { hasMore = false; success = true; }
-                                pageIndex = pageIndex + 1;
+                            // Single upsert query for bazar table with day columns
+                            string upsertBazarQuery = @"
+                          INSERT INTO li_com (
+                              com_id, com_display_name, com_name, com_function,game_name, com_min_no,
+                              com_max_no, com_status
+                          ) VALUES (
+                              @com_id, @com_display_name, @com_name,@com_function ,@game_name, @com_min_no,
+                              @com_max_no, @com_status
+                          )
+                          ON CONFLICT(com_id) DO UPDATE SET
+                              com_display_name = excluded.com_display_name,
+                              com_name = excluded.com_name,
+                              com_function = excluded.com_function,
+                              game_name = excluded.game_name,
+                              com_min_no = excluded.com_min_no,
+                              com_max_no = excluded.com_max_no,
+                              com_status = excluded.com_status";
 
-                                string sync_date = (string)apiResponse?.results?.sync_date;
-
-                                foreach (var item in apiResponse?.results?.data)
-                                {
-                                    updateUserRecord(item, sync_date);
-                                }
-                            }
-                            else
+                            using (var cmd = new SQLiteCommand(upsertBazarQuery, connection, transaction))
                             {
-                                retryCount++;
-                                if (retryCount > 5)
-                                {
-                                    hasMore = false;
-                                }
+                                // Main bazar fields
+                                cmd.Parameters.AddWithValue("@com_id", (long)item.com_id);
+                                cmd.Parameters.AddWithValue("@com_display_name", item.com_display_name?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@com_name", item.com_name?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@com_function", item.com_function?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@game_name", item.game_name?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@com_min_no", item.com_min_no?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@com_max_no", item.com_max_no?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@com_status", item.com_status?.ToString() ?? "");
+
+                                cmd.ExecuteNonQuery();
                             }
+
+                            transaction.Commit();
+                            return true;
                         }
-                        else
+                        catch (Exception ex)
                         {
-                            retryCount++;
-                            if (retryCount > 5)
-                            {
-                                hasMore = false;
-                            }
+                            transaction.Rollback();
+                            Console.WriteLine($"Error updating com record: {ex.Message}");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-
-                message = ex.Message;
+                Console.WriteLine($"Database error in updateComRecord: {ex.Message}");
             }
-            return (success, message);
+            return false;
+        }
+       
+        private bool updateLiPanaRecord(dynamic item)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(DatabaseManager.ConnectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // Single upsert query for bazar table with day columns
+                            string upsertBazarQuery = @"
+                              INSERT INTO li_pana (
+                                  id, pana, group_id, number_id,number_main,status, pana_type,
+                                  check_motor, check_family,check_chipke_bikhre, check_run, check_center, check_forgot
+                              ) VALUES (
+                                  @id, @pana, @group_id,@number_id ,@number_main,@status ,@pana_type,
+                                  @check_motor, @check_family, @check_chipke_bikhre, @check_run, @check_center, @check_forgot
+                              )
+                              ON CONFLICT(id) DO UPDATE SET
+                                  pana = excluded.pana,
+                                  group_id = excluded.group_id,
+                                  number_id = excluded.number_id,
+                                  number_main = excluded.number_main,
+                                  status = excluded.status,
+                                  pana_type = excluded.pana_type,
+                                  check_motor = excluded.check_motor,
+                                  check_family = excluded.check_family,
+                                  check_chipke_bikhre = excluded.check_chipke_bikhre,
+                                  check_run = excluded.check_run,
+                                  check_center = excluded.check_center,
+                                  check_forgot = excluded.check_forgot
+                             ";
+
+                            using (var cmd = new SQLiteCommand(upsertBazarQuery, connection, transaction))
+                            {
+                                // Main bazar fields
+                                cmd.Parameters.AddWithValue("@id", (long)item.id);
+                                cmd.Parameters.AddWithValue("@pana", item.pana?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@group_id", item.group_id?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@number_id", item.number_id?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@number_main", item.number_main?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@status", item.status?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@pana_type", item.pana_type?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@check_motor", item.check_motor?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@check_family", item.check_family?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@check_chipke_bikhre", item.check_chipke_bikhre?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@check_run", item.check_run?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@check_center", item.check_center?.ToString() ?? "");
+                                cmd.Parameters.AddWithValue("@check_forgot", item.check_forgot?.ToString() ?? "");
+
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            transaction.Commit();
+                            return true;
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            Console.WriteLine($"Error updating com record: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database error in updateComRecord: {ex.Message}");
+            }
+            return false;
         }
 
         private bool updateUserRecord(PlayerData itm, string sync_date)

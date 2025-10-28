@@ -11,6 +11,7 @@ namespace OfflineOps
     {
         private bool isSyncInProgress = false;
         private CancellationTokenSource cancellationTokenSource;
+        public event Action OnSyncCompleted;
 
         public frmBazar()
         {
@@ -89,6 +90,7 @@ namespace OfflineOps
                     MessageBox.Show("Bazar data synced successfully!", "Success",
                       MessageBoxButtons.OK, MessageBoxIcon.Information);
                     LoadBazarData(); // Refresh grid
+                    OnSyncCompleted?.Invoke();
                 }
                 else
                 {
@@ -135,7 +137,7 @@ namespace OfflineOps
                 dt.Rows[i]["sunday"] = (dt.Rows[i]["sunday"]?.ToString() == "1" ? "YES" : "NO");
             }
             txtDgv.AutoGenerateColumns = false;
-            txtDgv.DataSource = dt;
+            txtDgv.DataSource = dt; 
         }
     }
 }
