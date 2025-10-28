@@ -16,8 +16,10 @@ namespace OfflineOps
     public partial class frmMain : Form
     {
         private Timer bazarTimer;
-
-        private ApiHelper apiHelper = new ApiHelper();
+        private ApiHelper syncManager = new ApiHelper();
+        private bool isWaitingForSync = false;
+        private System.Windows.Forms.Timer syncTimer;
+        private bool timerInUse = false;
 
         public frmMain()
         {
@@ -31,12 +33,59 @@ namespace OfflineOps
             txtGame.SelectedIndexChanged += txtGame_SelectedIndexChanged;
             btnSubmit.Click += btnSubmit_Click;
             btnHistory.Click += btnHistory_Click;
+            this.FormClosing += frmMain_FormClosing;
+            syncTimer = new System.Windows.Forms.Timer();
+            syncTimer.Interval = 10000; syncTimer.Tick += syncTimer_Tick;
+            syncTimer.Start();
+        }
 
-            //Task.Run(async () =>
-            //{
-            //    await apiHelper.SyncLoad();
-            //});
+        private void syncTimer_Tick(object sender, EventArgs e)
+        {
+            if (timerInUse) { return; }
+            timerInUse = true;
+            if (StaticVar.CheckInternetConnection() && !syncManager.IsSyncRunning)
+            {
+                Task.Run(async () => { try { await syncManager.SyncLoad(); } catch { } });
+            }
+            timerInUse = false;
+        }
 
+        private async void frmMain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            syncTimer?.Stop();
+
+            // If sync is running and we're not already waiting
+            if (syncManager.IsSyncRunning && !isWaitingForSync)
+            {
+                // Cancel the close event
+                e.Cancel = true;
+                isWaitingForSync = true;
+
+                // Show message that user must wait
+                MessageBox.Show(
+                    "Sync is currently in progress.\n\n" +
+                    "Please wait for the sync to complete before closing.\n\n" +
+                    "The form will close automatically when sync is finished.",
+                    "Please Wait - Sync in Progress",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
+                // Disable the entire form to prevent other actions
+                this.Enabled = false;
+
+                // Update title to show waiting state
+                string originalTitle = this.Text;
+                this.Text = "⏳ Waiting for sync to complete...";
+
+                // Wait for sync to complete
+                while (syncManager.IsSyncRunning)
+                {
+                    await Task.Delay(100);
+                    Application.DoEvents(); // Keep UI responsive
+                }
+                // Close the application
+                Application.Exit();
+            }
         }
 
         protected override void WndProc(ref Message message)
@@ -509,6 +558,9 @@ namespace OfflineOps
             ComboItem selectedGame = txtGame.SelectedItem as ComboItem;
             ComboItem selectedSession = txtSession.SelectedItem as ComboItem;
 
+
+
+
             if (selectedPlayer == null || Convert.ToInt32(selectedPlayer.Value) == 0
                 || selectedGame == null || Convert.ToInt32(selectedGame.Value) == 0
                 || selectedSession == null || Convert.ToInt32(selectedSession.Value) == 0)
@@ -741,13 +793,16 @@ namespace OfflineOps
                     txtConsole.Text = "";
                     btnSubmit.Text = "Submit";
                     btnSubmit.Enabled = true;
+
+                    syncTimer_Tick(null, null);
+
                     LoadHistory();
                     LoadBalance(Convert.ToInt32(selectedPlayer.Value));
                 }
                 catch (Exception ex)
                 {
                     db.Rollback();
-                    MessageBox.Show($"Transaction failed", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show($"Transaction failed\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     btnSubmit.Text = "Submit";
                     btnSubmit.Enabled = true;
                     return;
@@ -892,7 +947,5 @@ namespace OfflineOps
             frmHistory frmHistory = new frmHistory();
             frmHistory.ShowDialog();
         }
-
-
     }
 }

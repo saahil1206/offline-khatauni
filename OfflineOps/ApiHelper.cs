@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Linq;
+using System.Threading;
 
 namespace OfflineOps
 {
@@ -133,6 +134,7 @@ namespace OfflineOps
             }
             return (success, message);
         }
+
         public async Task<(bool, string)> SyncPlayerData(List<long> arrayList)
         {
             bool success = false; string message = string.Empty;
@@ -198,20 +200,58 @@ namespace OfflineOps
             return (success, message);
         }
 
+        private bool syncLoadRunning = false;
+        private readonly object syncLock = new object();
+        public int syncLoadLimit = 10;
+
+        /// <summary>
+        /// Check if sync is currently running
+        /// </summary>
+        public bool IsSyncRunning
+        {
+            get
+            {
+                lock (syncLock)
+                {
+                    return syncLoadRunning;
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// Perform sync operation - cannot be cancelled once started
+        /// </summary>
         public async Task<(bool, string)> SyncLoad()
         {
-            bool success = false;
-            string message = string.Empty;
+            // Check if already running
+            lock (syncLock)
+            {
+                if (syncLoadRunning)
+                {
+                    return (false, "Syncing is already in progress.");
+                }
+                syncLoadRunning = true;
+            }
 
             try
             {
-                int limit = 10;
-                var db = new DatabaseHelper();
-                var payloadList = new List<Dictionary<string, object>>();
+                return await SyncLoadInternal();
+            }
+            finally
+            {
+                lock (syncLock)
+                {
+                    syncLoadRunning = false;
+                }
+            }
+        }
 
-                string query = @"
+        private async Task<(bool success, string message)> SyncLoadInternal()
+        {
+            string query = @"
                    SELECT * FROM (
-                          SELECT 
+                          SELECT
                               id, user_id, bazar_id, bazar_cat, game_name, game_test_name,aakda_no, pana_no,
                               amount, total_amount, server_flag, cancel_status, game_date,
                               upload_date, created_date, 'GROUP' AS type,
@@ -222,7 +262,7 @@ namespace OfflineOps
 
                           UNION ALL
 
-                          SELECT 
+                          SELECT
                               id, user_id, bazar_id, bazar_cat, NULL AS game_name, NULL AS game_test_name,NULL AS aakda_no, NULL AS pana_no,
                               amount, NULL AS total_amount, server_flag, cancel_status, game_date,
                               upload_date, created_date, 'SINGLE' AS type,
@@ -235,82 +275,149 @@ namespace OfflineOps
                       LIMIT @limit;
                 ";
 
-                using (var cmd = new SQLiteCommand(query))
+            var payloadList = new List<Dictionary<string, object>>();
+            using (var cmd = new SQLiteCommand(query))
+            {
+                cmd.Parameters.AddWithValue("@limit", syncLoadLimit);
+                DatabaseHelper db = new DatabaseHelper(); DataTable dt = db.Read(cmd);
+
+                foreach (DataRow row in dt.Rows)
                 {
-                    cmd.Parameters.AddWithValue("@limit", limit);
-                    DataTable dt = db.Read(cmd);
-
-                    foreach (DataRow row in dt.Rows)
+                    var rowDict = new Dictionary<string, object>();
+                    foreach (DataColumn col in dt.Columns)
                     {
-                        var rowDict = new Dictionary<string, object>();
-                        foreach (DataColumn col in dt.Columns)
-                            rowDict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
-
-                        payloadList.Add(rowDict);
+                        rowDict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
                     }
-
-                    if (payloadList.Count == 0)
-                        return (false, "No pending rows to sync.");
+                    payloadList.Add(rowDict);
                 }
-
-                bool hasMore = true; int retryCount = 0;
-
-                while (hasMore)
+            }
+            if (payloadList.Count <= 0)
+            {
+                return (false, "No load data to sync.");
+            }
+            using (var db = new DatabaseHelper())
+            {
+                db.BeginTransaction();
+                try
                 {
-                    if (StaticVar.IsTokenExpired(StaticVar.access_token))
-                        await RefreshToken();
-
-                    var data = JsonConvert.SerializeObject(payloadList);
-
-                    using (var client = new HttpClient())
+                    // UPDATE SELECTED ROWS 
+                    List<string> singleIds = new List<string>(); List<string> groupIds = new List<string>();
+                    foreach (var row in payloadList)
                     {
-                        client.DefaultRequestHeaders.Authorization =
-                            new AuthenticationHeaderValue("Bearer", StaticVar.access_token);
+                        string id = row["id"].ToString(); string tableType = row["type"].ToString();
 
-                        var content = new StringContent(data, Encoding.UTF8, "application/json");
-                        var response = await client.PostAsync($"{StaticVar.apiServer}offline/sync-load", content);
-                        string jsonResponse = await response.Content.ReadAsStringAsync();
-
-                        ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(jsonResponse);
-
-                        if (response.StatusCode == HttpStatusCode.OK && apiResponse.status)
+                        if (tableType.ToLower() == "group")
                         {
-                            foreach (var row in payloadList)
-                            {
-                                string id = row["id"].ToString();
-                                string tableType = row["type"].ToString();
-
-                                string updateQuery = (tableType.ToLower() == "group")
-                                    ? "UPDATE group_trans SET server_flag = 1, upload_date = @upload_date WHERE id = @id"
-                                    : "UPDATE single_digit SET server_flag = 1, upload_date = @upload_date WHERE id = @id";
-
-                                using (var updateCmd = new SQLiteCommand(updateQuery))
-                                {
-                                    updateCmd.Parameters.AddWithValue("@id", id);
-                                    updateCmd.Parameters.AddWithValue("@upload_date", StaticVar.getCurrDateTime().ToString("yyyy-MM-dd HH:mm:ss"));
-                                    db.Update(updateCmd);
-                                }
-                            }
-
-                            success = true;
-                            message = "Synced successfully";
-                            hasMore = false;
+                            groupIds.Add(id);
                         }
                         else
                         {
-                            retryCount++;
-                            if (retryCount > 5) hasMore = false;
+                            singleIds.Add(id);
                         }
                     }
+                    string upload_date = StaticVar.getCurrDateTime().ToString("yyyy-MM-dd HH:mm:ss");
+                    if (singleIds.Count > 0)
+                    {
+                        string placeholders = string.Join(",", singleIds.Select((_, i) => $"@id{i}"));
+                        string updateQuery = $"UPDATE single_digit SET server_flag = 1, upload_date = @upload_date WHERE id IN ({placeholders})";
+
+                        using (var updateCmd = new SQLiteCommand(updateQuery))
+                        {
+                            updateCmd.Parameters.AddWithValue("@upload_date", upload_date);
+                            for (int i = 0; i < singleIds.Count; i++)
+                            {
+                                updateCmd.Parameters.AddWithValue($"@id{i}", singleIds[i]);
+                            }
+                            db.Update(updateCmd);
+                        }
+                    }
+                    if (groupIds.Count > 0)
+                    {
+                        string placeholders = string.Join(",", groupIds.Select((_, i) => $"@id{i}"));
+                        string updateQuery = $"UPDATE group_trans SET server_flag = 1, upload_date = @upload_date WHERE id IN ({placeholders})";
+
+                        using (var updateCmd = new SQLiteCommand(updateQuery))
+                        {
+                            updateCmd.Parameters.AddWithValue("@upload_date", upload_date);
+                            for (int i = 0; i < groupIds.Count; i++)
+                            {
+                                updateCmd.Parameters.AddWithValue($"@id{i}", groupIds[i]);
+                            }
+                            db.Update(updateCmd);
+                        }
+                    }
+
+                    // Send to server with retry logic
+                    int retryCount = 0; int maxRetry = 3;
+                    bool uploadSuccess = false; string errorMessage = "";
+                    while (retryCount <= maxRetry)
+                    {
+                        try
+                        {
+                            if (StaticVar.IsTokenExpired(StaticVar.access_token))
+                            {
+                                await RefreshToken();
+                            }
+
+                            var data = JsonConvert.SerializeObject(payloadList);
+
+                            using (var client = new HttpClient())
+                            {
+                                client.Timeout = TimeSpan.FromSeconds(30);
+                                client.DefaultRequestHeaders.Authorization =
+                                    new AuthenticationHeaderValue("Bearer", StaticVar.access_token);
+
+                                var content = new StringContent(data, Encoding.UTF8, "application/json");
+                                var response = await client.PostAsync(
+                                    $"{StaticVar.apiServer}offline/sync-load",
+                                    content);
+
+                                string jsonResponse = await response.Content.ReadAsStringAsync();
+                                ApiResponse apiResponse = JsonConvert.DeserializeObject<ApiResponse>(jsonResponse);
+
+                                if (response.StatusCode == HttpStatusCode.OK && apiResponse.status)
+                                {
+                                    uploadSuccess = true;
+                                    break; // Success, exit retry loop
+                                }
+                                else
+                                {
+                                    errorMessage = apiResponse?.message ?? "Server returned error";
+                                    retryCount++;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errorMessage = ex.Message;
+                            retryCount++;
+
+                            // Exponential backoff: wait before retry
+                            if (retryCount <= maxRetry)
+                            {
+                                await Task.Delay(500 * retryCount); // 1s, 2s, 3s
+                            }
+                        }
+                    }
+                    if (uploadSuccess)
+                    {
+                        db.Commit();
+                        return (true, "Synced successfully.");
+                    }
+                    else
+                    {
+                        db.Rollback();
+                        return (false, $"Failed to sync after {maxRetry} retries. Error: {errorMessage}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    db.Rollback();
+                    return (false, $"Sync error: {ex.Message}");
                 }
             }
-            catch (Exception ex)
-            {
-                message = "Error: " + ex.Message;
-            }
-
-            return (success, message);
         }
+
 
         private bool updateBazarRecord(dynamic item)
         {
@@ -421,6 +528,7 @@ namespace OfflineOps
             }
             return false;
         }
+
         private bool updateComRecord(dynamic item)
         {
             try
@@ -482,7 +590,7 @@ namespace OfflineOps
             }
             return false;
         }
-       
+
         private bool updateLiPanaRecord(dynamic item)
         {
             try
