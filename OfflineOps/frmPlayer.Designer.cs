@@ -44,6 +44,7 @@
             this.Column10 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column11 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column13 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Column16 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column14 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column15 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Column12 = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -99,6 +100,7 @@
             this.Column10,
             this.Column11,
             this.Column13,
+            this.Column16,
             this.Column14,
             this.Column15,
             this.Column12});
@@ -193,6 +195,13 @@
             this.Column13.Name = "Column13";
             this.Column13.ReadOnly = true;
             // 
+            // Column16
+            // 
+            this.Column16.DataPropertyName = "opening_credit";
+            this.Column16.HeaderText = "Opening Credit";
+            this.Column16.Name = "Column16";
+            this.Column16.ReadOnly = true;
+            // 
             // Column14
             // 
             this.Column14.DataPropertyName = "apc_amount";
@@ -255,6 +264,7 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn Column10;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column11;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column13;
+        private System.Windows.Forms.DataGridViewTextBoxColumn Column16;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column14;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column15;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column12;

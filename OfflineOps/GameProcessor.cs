@@ -491,15 +491,15 @@ namespace OfflineOps
                     break;
                 case "sp":
                     orgName = "spPatti";
-                    testName = "sp";
+                    testName = "single patti"; 
                     break;
                 case "dp":
                     orgName = "dpPatti";
-                    testName = "dp";
+                    testName = "dp patti";
                     break;
                 case "tp":
                     orgName = "tpPatti";
-                    testName = "tp";
+                    testName = "tp Patti"; 
                     break;
                 case "cycle":
                     orgName = "cyclepana";
@@ -603,22 +603,22 @@ namespace OfflineOps
                     break;
                 case "abr 30":
                     orgName = "abr30";
-                    testName = "abr 30";
+                    testName = "abr30"; 
                     break;
                 case "40 pana":
                     orgName = "pana40";
-                    testName = "40 pana";
+                    testName = "pana40"; 
                     break;
                 case "sabhi figure cut pana":
                     orgName = "cut40";
-                    testName = "sabhi figure cut pana";
+                    testName = "cut40"; 
                     break;
                 case "forgot pana":
-                    orgName = "forgot pana";
+                    orgName = "forgotpana"; 
                     testName = "forgot pana";
                     break;
                 case "run pana":
-                    orgName = "run pana";
+                    orgName = "runpana"; 
                     testName = "run pana";
                     break;
                 case "ko touch fail pana":
@@ -626,12 +626,12 @@ namespace OfflineOps
                     testName = "ko touch fail pana";
                     break;
                 case "family":
-                    orgName = "family pana";
-                    testName = "family";
+                    orgName = "familypana"; 
+                    testName = "family pana";
                     break;
                 case "abrcut 90 pana":
                     orgName = "Abr Cut 90 pana";
-                    testName = "abrcut 90 pana";
+                    testName = "Abr Cut";
                     break;
                 case "centerpana":
                     orgName = "centerpana";

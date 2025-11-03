@@ -1,11 +1,13 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace OfflineOps
 {
@@ -64,6 +66,35 @@ namespace OfflineOps
                 throw new FormatException("Invalid time format. Expected format: HH:mm:ss");
             }
         }
+
+        public static string ConvertToCustomDateTime(string dateTime24)
+        {
+            if (DateTime.TryParseExact(dateTime24, "yyyy-MM-dd HH:mm:ss",
+                                       CultureInfo.InvariantCulture,
+                                       DateTimeStyles.None, out DateTime dt))
+            {
+                return dt.ToString("dd-MM-yyyy hh:mm tt", CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                throw new FormatException("Invalid datetime format. Expected format: yyyy-MM-dd HH:mm:ss");
+            }
+        }
+       
+        public static string ConvertToCustomTime(string dateTime24)
+        {
+            if (DateTime.TryParseExact(dateTime24, "yyyy-MM-dd HH:mm:ss",
+                                       CultureInfo.InvariantCulture,
+                                       DateTimeStyles.None, out DateTime dt))
+            {
+                return dt.ToString("hh:mm tt", CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                throw new FormatException("Invalid datetime format. Expected format: yyyy-MM-dd HH:mm:ss");
+            }
+        }
+
 
         public static DateTime getGameCurrDate()
         {
@@ -130,5 +161,26 @@ namespace OfflineOps
                 return true;
             }
         }
+
+        public static string Format2(object value, Label label)
+        {
+            if (value == null || value == DBNull.Value) { return "0000000.00"; }
+
+            double.TryParse(value.ToString(), out double number);
+            if(number == 0) { return "0000000.00"; }
+            if (label.Name.ToLower() == "txtpl") 
+            { 
+                if(number < 0)
+                {
+                    label.ForeColor = Color.Red;
+                }
+                else
+                {
+                    label.ForeColor = Color.ForestGreen;
+                }
+            }
+            return number.ToString("F2");
+        }
+
     }
 }

@@ -54,6 +54,7 @@ namespace OfflineOps
         public decimal jodi_total { get; set; }
         public decimal jodi_exposure { get; set; }
         public decimal credit_amt { get; set; }
+        public decimal opening_credit { get; set; }
         public decimal apc_amount { get; set; }
         public decimal profit_loss { get; set; }
         public List<long> games { get; set; }  // Now properly typed!

@@ -222,14 +222,14 @@ namespace OfflineOps
         /// <summary>
         /// Perform sync operation - cannot be cancelled once started
         /// </summary>
-        public async Task<(bool, string)> SyncLoad()
+        public async Task<(bool, string, List<long>)> SyncLoad()
         {
             // Check if already running
             lock (syncLock)
             {
                 if (syncLoadRunning)
                 {
-                    return (false, "Syncing is already in progress.");
+                    return (false, "Syncing is already in progress.", null);
                 }
                 syncLoadRunning = true;
             }
@@ -247,123 +247,153 @@ namespace OfflineOps
             }
         }
 
-        private async Task<(bool success, string message)> SyncLoadInternal()
+        private async Task<(bool success, string message, List<long> idx)> SyncLoadInternal()
         {
             string query = @"
-                   SELECT * FROM (
-                          SELECT
-                              id, user_id, bazar_id, bazar_cat, game_name, game_test_name,aakda_no, pana_no,
-                              amount, total_amount, server_flag, cancel_status, game_date,
-                              upload_date, created_date, 'GROUP' AS type,
-                              NULL AS single0, NULL AS single1, NULL AS single2, NULL AS single3, NULL AS single4,
-                              NULL AS single5, NULL AS single6, NULL AS single7, NULL AS single8, NULL AS single9
-                          FROM group_trans
-                          WHERE server_flag = 0 AND cancel_status = 0
+                    SELECT * FROM (
+                        SELECT
+                            id, bet_id, user_id, bazar_id, bazar_cat, game_name, game_test_name, aakda_no, pana_no,
+                            amount, total_amount, server_flag, cancel_status, game_date,
+                            upload_date, created_date, 'GROUP' AS type,
+                            NULL AS single0, NULL AS single1, NULL AS single2, NULL AS single3, NULL AS single4,
+                            NULL AS single5, NULL AS single6, NULL AS single7, NULL AS single8, NULL AS single9
+                        FROM group_trans
+                        WHERE server_flag = 0 AND cancel_status = 0
 
-                          UNION ALL
+                        UNION ALL
 
-                          SELECT
-                              id, user_id, bazar_id, bazar_cat, NULL AS game_name, NULL AS game_test_name,NULL AS aakda_no, NULL AS pana_no,
-                              amount, NULL AS total_amount, server_flag, cancel_status, game_date,
-                              upload_date, created_date, 'SINGLE' AS type,
-                              single0, single1, single2, single3, single4,
-                              single5, single6, single7, single8, single9
-                          FROM single_digit
-                          WHERE server_flag = 0 AND cancel_status = 0
-                      )
-                      ORDER BY created_date
-                      LIMIT @limit;
+                        SELECT
+                            id, bet_id, user_id, bazar_id, bazar_cat, NULL AS game_name, NULL AS game_test_name,
+                            NULL AS aakda_no, NULL AS pana_no, amount, NULL AS total_amount, server_flag,
+                            cancel_status, game_date, upload_date, created_date, 'SINGLE' AS type,
+                            single0, single1, single2, single3, single4,
+                            single5, single6, single7, single8, single9
+                        FROM single_digit
+                        WHERE server_flag = 0 AND cancel_status = 0
+                    )
+                    ORDER BY bet_id, created_date
+                    LIMIT @limit;
                 ";
 
-            var payloadList = new List<Dictionary<string, object>>();
+            DatabaseHelper db1 = new DatabaseHelper();
+            DataTable dt;
             using (var cmd = new SQLiteCommand(query))
             {
                 cmd.Parameters.AddWithValue("@limit", syncLoadLimit);
-                DatabaseHelper db = new DatabaseHelper(); DataTable dt = db.Read(cmd);
+                dt = db1.Read(cmd);
+            }
 
-                foreach (DataRow row in dt.Rows)
-                {
-                    var rowDict = new Dictionary<string, object>();
-                    foreach (DataColumn col in dt.Columns)
-                    {
-                        rowDict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
-                    }
-                    payloadList.Add(rowDict);
-                }
-            }
-            if (payloadList.Count <= 0)
+            if (dt.Rows.Count <= 0)
             {
-                return (false, "No load data to sync.");
+                return (false, "No load data to sync.", null);
             }
+
+            var finalPayloadList = new List<Dictionary<string, object>>();
+
+            var grouped = dt.AsEnumerable()
+                .GroupBy(r => r["bet_id"]?.ToString())
+                .Where(g => !string.IsNullOrEmpty(g.Key));
+
+            foreach (var group in grouped)
+            {
+                string betId = group.Key;
+
+                string betStr = null; long amount = 0;
+                using (var cmdStr = new SQLiteCommand("SELECT bet_str,total_amount FROM bet_request WHERE id = @id"))
+                {
+                    cmdStr.Parameters.AddWithValue("@id", betId);
+                    DataTable strDt = db1.Read(cmdStr);
+                    if (strDt.Rows.Count > 0) { betStr = strDt.Rows[0]["bet_str"]?.ToString(); long.TryParse(strDt.Rows[0]["total_amount"].ToString(), out amount); }
+                }
+
+                var payload = new Dictionary<string, object>
+                {
+                    ["bet_id"] = betId,
+                    ["bet_str"] = betStr,
+                    ["amount"] = amount,
+                    ["data"] = group.Select(row =>
+                    {
+                        var dict = new Dictionary<string, object>();
+                        foreach (DataColumn col in dt.Columns)
+                            dict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
+                        return dict;
+                    }).ToList()
+                };
+
+                finalPayloadList.Add(payload);
+            }
+
+            if (finalPayloadList.Count == 0)
+            {
+                return (false, "No valid grouped data found.", null);
+            }
+
+            if (StaticVar.IsTokenExpired(StaticVar.access_token))
+            {
+                await RefreshToken();
+            }
+
+
             using (var db = new DatabaseHelper())
             {
-                db.BeginTransaction();
+                //db.BeginTransaction();
                 try
                 {
                     // UPDATE SELECTED ROWS 
-                    List<string> singleIds = new List<string>(); List<string> groupIds = new List<string>();
-                    foreach (var row in payloadList)
-                    {
-                        string id = row["id"].ToString(); string tableType = row["type"].ToString();
+                    //List<string> singleIds = new List<string>(); List<string> groupIds = new List<string>();
+                    //foreach (var group in finalPayloadList)
+                    //{
+                    //    var rows = (List<Dictionary<string, object>>)group["data"];
+                    //    foreach (var row in rows)
+                    //    {
+                    //        string id = row["id"].ToString();
+                    //        string type = row["type"].ToString().ToLower();
+                    //        if (type == "group") groupIds.Add(id);
+                    //        else singleIds.Add(id);
+                    //    }
+                    //}
+                    //string uploadDate = StaticVar.getCurrDateTime().ToString("yyyy-MM-dd HH:mm:ss");
 
-                        if (tableType.ToLower() == "group")
-                        {
-                            groupIds.Add(id);
-                        }
-                        else
-                        {
-                            singleIds.Add(id);
-                        }
-                    }
-                    string upload_date = StaticVar.getCurrDateTime().ToString("yyyy-MM-dd HH:mm:ss");
-                    if (singleIds.Count > 0)
-                    {
-                        string placeholders = string.Join(",", singleIds.Select((_, i) => $"@id{i}"));
-                        string updateQuery = $"UPDATE single_digit SET server_flag = 1, upload_date = @upload_date WHERE id IN ({placeholders})";
+                    //if (singleIds.Count > 0)
+                    //{
+                    //    string placeholders = string.Join(",", singleIds.Select((_, i) => $"@id{i}"));
+                    //    string updateQuery = $"UPDATE single_digit SET server_flag = 1, upload_date = @upload_date WHERE id IN ({placeholders})";
+                    //    using (var updateCmd = new SQLiteCommand(updateQuery))
+                    //    {
+                    //        updateCmd.Parameters.AddWithValue("@upload_date", uploadDate);
+                    //        for (int i = 0; i < singleIds.Count; i++)
+                    //            updateCmd.Parameters.AddWithValue($"@id{i}", singleIds[i]);
+                    //        db.Update(updateCmd);
+                    //    }
+                    //}
 
-                        using (var updateCmd = new SQLiteCommand(updateQuery))
-                        {
-                            updateCmd.Parameters.AddWithValue("@upload_date", upload_date);
-                            for (int i = 0; i < singleIds.Count; i++)
-                            {
-                                updateCmd.Parameters.AddWithValue($"@id{i}", singleIds[i]);
-                            }
-                            db.Update(updateCmd);
-                        }
-                    }
-                    if (groupIds.Count > 0)
-                    {
-                        string placeholders = string.Join(",", groupIds.Select((_, i) => $"@id{i}"));
-                        string updateQuery = $"UPDATE group_trans SET server_flag = 1, upload_date = @upload_date WHERE id IN ({placeholders})";
-
-                        using (var updateCmd = new SQLiteCommand(updateQuery))
-                        {
-                            updateCmd.Parameters.AddWithValue("@upload_date", upload_date);
-                            for (int i = 0; i < groupIds.Count; i++)
-                            {
-                                updateCmd.Parameters.AddWithValue($"@id{i}", groupIds[i]);
-                            }
-                            db.Update(updateCmd);
-                        }
-                    }
+                    //if (groupIds.Count > 0)
+                    //{
+                    //    string placeholders = string.Join(",", groupIds.Select((_, i) => $"@id{i}"));
+                    //    string updateQuery = $"UPDATE group_trans SET server_flag = 1, upload_date = @upload_date WHERE id IN ({placeholders})";
+                    //    using (var updateCmd = new SQLiteCommand(updateQuery))
+                    //    {
+                    //        updateCmd.Parameters.AddWithValue("@upload_date", uploadDate);
+                    //        for (int i = 0; i < groupIds.Count; i++)
+                    //            updateCmd.Parameters.AddWithValue($"@id{i}", groupIds[i]);
+                    //        db.Update(updateCmd);
+                    //    }
+                    //}
 
                     // Send to server with retry logic
                     int retryCount = 0; int maxRetry = 3;
-                    bool uploadSuccess = false; string errorMessage = "";
+                    bool uploadSuccess = false; string errorMessage = ""; List<long> userIdx = new List<long>();
                     while (retryCount <= maxRetry)
                     {
                         try
                         {
-                            if (StaticVar.IsTokenExpired(StaticVar.access_token))
-                            {
-                                await RefreshToken();
-                            }
 
-                            var data = JsonConvert.SerializeObject(payloadList);
+
+                            var data = JsonConvert.SerializeObject(finalPayloadList);
 
                             using (var client = new HttpClient())
                             {
-                                client.Timeout = TimeSpan.FromSeconds(30);
+                                client.Timeout = TimeSpan.FromMinutes(2);
                                 client.DefaultRequestHeaders.Authorization =
                                     new AuthenticationHeaderValue("Bearer", StaticVar.access_token);
 
@@ -378,6 +408,97 @@ namespace OfflineOps
                                 if (response.StatusCode == HttpStatusCode.OK && apiResponse.status)
                                 {
                                     uploadSuccess = true;
+
+                                    if (apiResponse.results?.userIdx?.Count > 0)
+                                    {
+                                        foreach (var usr in apiResponse.results.userIdx)
+                                        {
+                                            using (var userCmd = new SQLiteCommand(@"
+                                                    UPDATE users 
+                                                    SET 
+                                                        balance = @balance,
+                                                        aakda_total = @aakda_total,
+                                                        aakda_exposure = @aakda_exposure,
+                                                        pana_total = @pana_total,
+                                                        pana_exposure = @pana_exposure,
+                                                        group_pana_total = @group_pana_total,
+                                                        group_pana_exposure = @group_pana_exposure,
+                                                        jodi_total = @jodi_total,
+                                                        jodi_exposure = @jodi_exposure,
+                                                        credit_amt = @credit_amt,
+                                                        opening_credit = @opening_credit,
+                                                        apc_amount = @apc_amount,
+                                                        opening_credit = @opening_credit,
+                                                        profit_loss = @profit_loss,
+                                                        sync_date = @sync_date
+                                                    WHERE id = @id;
+                                                "))
+                                            {
+                                                userCmd.Parameters.AddWithValue("@id", usr.id);
+                                                userCmd.Parameters.AddWithValue("@balance", usr.balance);
+                                                userCmd.Parameters.AddWithValue("@aakda_total", usr.aakda_total);
+                                                userCmd.Parameters.AddWithValue("@aakda_exposure", usr.aakda_exposure);
+                                                userCmd.Parameters.AddWithValue("@pana_total", usr.pana_total);
+                                                userCmd.Parameters.AddWithValue("@pana_exposure", usr.pana_exposure);
+                                                userCmd.Parameters.AddWithValue("@group_pana_total", usr.group_pana_total);
+                                                userCmd.Parameters.AddWithValue("@group_pana_exposure", usr.group_pana_exposure);
+                                                userCmd.Parameters.AddWithValue("@jodi_total", usr.jodi_total);
+                                                userCmd.Parameters.AddWithValue("@jodi_exposure", usr.jodi_exposure);
+                                                userCmd.Parameters.AddWithValue("@credit_amt", usr.credit_amt);
+                                                userCmd.Parameters.AddWithValue("@opening_credit", usr.opening_credit);
+                                                userCmd.Parameters.AddWithValue("@opening_credit", usr.opening_credit);
+                                                userCmd.Parameters.AddWithValue("@apc_amount", usr.apc_amount);
+                                                userCmd.Parameters.AddWithValue("@profit_loss", usr.profit_loss);
+                                                userCmd.Parameters.AddWithValue("@sync_date", StaticVar.getCurrDateTime().ToString("yyyy-MM-dd"));
+
+                                                db.Update(userCmd);
+                                            }
+                                        }
+                                    }
+
+                                    string uploadDate = StaticVar.getCurrDateTime().ToString("yyyy-MM-dd HH:mm:ss");
+
+                                    if (apiResponse.results?.betIdx?.Count > 0)
+                                    {
+                                        var betIdx = ((IEnumerable<object>)apiResponse.results.betIdx)
+                                                     .Select(x => x.ToString())
+                                                     .ToList();
+                                        if (betIdx.Count > 0)
+                                        {
+                                            var placeholders = betIdx.Select((id, i) => $"@bet{i}").ToArray();
+                                            string inClause = string.Join(",", placeholders);
+                                            string betQuery = $@"
+                                                    UPDATE single_digit SET server_flag = 1, upload_date = @upload_date WHERE bet_id IN ({inClause});
+                                                    UPDATE group_trans SET server_flag = 1, upload_date = @upload_date WHERE bet_id IN ({inClause});
+                                                    UPDATE bet_request SET server_flag = 1, upload_date = @upload_date WHERE id IN ({inClause});
+                                                ";
+                                            using (var betCmd = new SQLiteCommand(betQuery))
+                                            {
+                                                betCmd.Parameters.AddWithValue("@upload_date", uploadDate);
+                                                for (int i = 0; i < betIdx.Count; i++)
+                                                {
+                                                    betCmd.Parameters.AddWithValue($"@bet{i}", betIdx[i]);
+                                                }
+
+                                                db.Update(betCmd);
+                                            }
+                                        }
+                                    }
+
+
+                                    if (apiResponse.results.userIdx is IEnumerable<dynamic> usersList)
+                                    {
+                                        foreach (var user in usersList)
+                                        {
+                                            long idValue = 0;
+
+                                            if (user.id != null && long.TryParse(user.id.ToString(), out idValue))
+                                            {
+                                                userIdx.Add(idValue);
+                                            }
+                                        }
+                                    }
+
                                     break; // Success, exit retry loop
                                 }
                                 else
@@ -401,19 +522,16 @@ namespace OfflineOps
                     }
                     if (uploadSuccess)
                     {
-                        db.Commit();
-                        return (true, "Synced successfully.");
+                        return (true, "Synced successfully.", userIdx);
                     }
                     else
                     {
-                        db.Rollback();
-                        return (false, $"Failed to sync after {maxRetry} retries. Error: {errorMessage}");
+                        return (false, $"Failed to sync after {maxRetry} retries. Error: {errorMessage}", null);
                     }
                 }
                 catch (Exception ex)
                 {
-                    db.Rollback();
-                    return (false, $"Sync error: {ex.Message}");
+                    return (false, $"Sync error: {ex.Message}", null);
                 }
             }
         }
@@ -677,10 +795,10 @@ namespace OfflineOps
                         string upsertUserQuery = @"
                           INSERT INTO users (id, username, contact, balance, aakda_total, aakda_exposure,
                                             pana_total, pana_exposure, group_pana_total, group_pana_exposure,
-                                            jodi_total, jodi_exposure, credit_amt, apc_amount, profit_loss, sync_date)
+                                            jodi_total, jodi_exposure, credit_amt,opening_credit, apc_amount, profit_loss, sync_date)
                           VALUES (@id, @username, @contact, @balance, @aakda_total, @aakda_exposure,
                                  @pana_total, @pana_exposure, @group_pana_total, @group_pana_exposure,
-                                 @jodi_total, @jodi_exposure, @credit_amt, @apc_amount, @profit_loss, @sync_date)
+                                 @jodi_total, @jodi_exposure, @credit_amt,@opening_credit ,@apc_amount, @profit_loss, @sync_date)
                           ON CONFLICT(id) DO UPDATE SET
                               username = excluded.username,
                               contact = excluded.contact,
@@ -694,6 +812,7 @@ namespace OfflineOps
                               jodi_total = excluded.jodi_total,
                               jodi_exposure = excluded.jodi_exposure,
                               credit_amt = excluded.credit_amt,
+                              opening_credit = excluded.opening_credit,
                               apc_amount = excluded.apc_amount,                              
                               profit_loss = excluded.profit_loss,
                               sync_date = excluded.sync_date";
@@ -712,6 +831,7 @@ namespace OfflineOps
                             cmd.Parameters.AddWithValue("@jodi_total", itm.jodi_total);
                             cmd.Parameters.AddWithValue("@jodi_exposure", itm.jodi_exposure);
                             cmd.Parameters.AddWithValue("@credit_amt", itm.credit_amt);
+                            cmd.Parameters.AddWithValue("@opening_credit", itm.opening_credit);
                             cmd.Parameters.AddWithValue("@apc_amount", itm.apc_amount);
                             cmd.Parameters.AddWithValue("@profit_loss", itm.profit_loss);
                             cmd.Parameters.AddWithValue("@sync_date", sync_date);

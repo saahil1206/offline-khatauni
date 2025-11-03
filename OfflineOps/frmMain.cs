@@ -31,24 +31,82 @@ namespace OfflineOps
             shortcutsToolStripMenuItem.Click += shortcutsToolStripMenuItem_Click;
             txtPlayer.SelectedIndexChanged += txtPlayer_SelectedIndexChanged;
             txtGame.SelectedIndexChanged += txtGame_SelectedIndexChanged;
+            txtDgv.CellContentClick += txtDgv_CellContentClick;
+            txtDgv.CellFormatting += txtDgv_CellFormatting;
             btnSubmit.Click += btnSubmit_Click;
             btnHistory.Click += btnHistory_Click;
             this.FormClosing += frmMain_FormClosing;
             syncTimer = new System.Windows.Forms.Timer();
-            syncTimer.Interval = 10000; syncTimer.Tick += syncTimer_Tick;
+            syncTimer.Interval = 3000; syncTimer.Tick += syncTimer_Tick;
             syncTimer.Start();
         }
 
+
         private void syncTimer_Tick(object sender, EventArgs e)
         {
-            if (timerInUse) { return; }
+            if (timerInUse) return;
+
             timerInUse = true;
+
             if (StaticVar.CheckInternetConnection() && !syncManager.IsSyncRunning)
             {
-                Task.Run(async () => { try { await syncManager.SyncLoad(); } catch { } });
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        this.Invoke(new Action(() =>
+                        {
+                            lbStrip.Visible = true; pgStrip.Visible = true;
+                            pgStrip.Style = ProgressBarStyle.Marquee;
+                            lbStrip.Text = "Processing to server...";
+                        }));
+
+                        var (success, message, userIds) = await syncManager.SyncLoad();
+                        if (success)
+                        {
+
+                            this.Invoke(new Action(() =>
+                            {
+                                ComboItem selectedItem = txtPlayer.SelectedItem as ComboItem; long user_id = 0;
+                                ComboItem selectedBazar = txtGame.SelectedItem as ComboItem; long game_id = 0;
+                                if (selectedBazar != null) { long.TryParse(selectedBazar.Value.ToString(), out game_id); }
+                                if (selectedItem != null && userIds != null)
+                                {
+                                    long.TryParse(selectedItem.Value.ToString(), out user_id);
+                                    foreach (var id in userIds)
+                                    {
+                                        if (user_id == id) { LoadBalance(user_id); LoadHistory(user_id, game_id); break; }
+                                    }
+                                }
+                            }));
+                        }
+                        else
+                        {
+                            this.Invoke(new Action(() =>
+                            {
+                                pgStrip.Style = ProgressBarStyle.Continuous;
+                                lbStrip.Text = "Transaction Failed";
+                            }));
+                        }
+                    }
+                    catch { }
+                    finally
+                    {
+                        timerInUse = false;
+                        this.Invoke(new Action(() =>
+                        {
+                            lbStrip.Visible = false;
+                            pgStrip.Visible = false;
+                        }));
+                    }
+                });
             }
-            timerInUse = false;
+            else
+            {
+                timerInUse = false;
+            }
         }
+
 
         private async void frmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -154,15 +212,98 @@ namespace OfflineOps
             OpenShortcutsWindow();
         }
 
+        private void txtDgv_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0 && txtDgv.Columns[e.ColumnIndex].Name == "btnCancel")
+            {
+                if (syncManager.IsSyncRunning && !isWaitingForSync)
+                {
+                    MessageBox.Show("Sync is currently in progress", "Please Wait - Sync in Progress", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                var row = txtDgv.Rows[e.RowIndex];
+
+                string serverFlag = txtDgv.Columns.Contains("server_flag") ? row.Cells["server_flag"].Value?.ToString() ?? "False" : "False";
+
+                string cancelStatus = txtDgv.Columns.Contains("cancel_status") ? row.Cells["cancel_status"].Value?.ToString() ?? "False" : "False";
+
+                if (serverFlag == "True")
+                {
+                    return;
+                }
+
+                if (cancelStatus == "True")
+                {
+                    return;
+                }
+
+                string id = row.Cells["id"].Value?.ToString();
+                string betId = row.Cells["bet_id"].Value?.ToString();
+
+                var confirm = MessageBox.Show($"Do you really want to cancel this record ?", "Confirm Cancel", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                if (confirm == DialogResult.Yes)
+                {
+                    CancelRecord(id, betId);
+                }
+            }
+        }
+
+        private void txtDgv_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+
+            if (e.RowIndex < 0) return;
+
+            bool hasServerFlag = txtDgv.Columns.Contains("server_flag");
+            bool hasCancelStatus = txtDgv.Columns.Contains("cancel_status");
+
+            string flag = hasServerFlag ? txtDgv.Rows[e.RowIndex].Cells["server_flag"].Value?.ToString() ?? "False" : "False";
+            string status = hasCancelStatus ? txtDgv.Rows[e.RowIndex].Cells["cancel_status"].Value?.ToString() ?? "False" : "False";
+
+            if (flag == "True")
+            {
+                txtDgv.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.LightGreen;
+            }
+            else if (status == "True")
+            {
+                txtDgv.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.IndianRed;
+            }
+            else
+            {
+                txtDgv.Rows[e.RowIndex].DefaultCellStyle.BackColor = Color.White;
+            }
+
+            if (txtDgv.Columns[e.ColumnIndex].Name == "btnCancel")
+            {
+                if (flag == "True")
+                {
+                    e.Value = "";
+                    e.CellStyle.BackColor = Color.White;
+                }
+                else if (status == "True")
+                {
+                    e.Value = "Cancelled";
+                    e.CellStyle.BackColor = Color.DarkSlateGray;
+                }
+                else
+                {
+                    e.Value = "Cancel";
+                    e.CellStyle.BackColor = Color.LightCoral;
+                }
+
+                e.FormattingApplied = true;
+            }
+        }
+
+
         private void OpenBazarWindow()
         {
             frmBazar frm = new frmBazar();
             frm.OnSyncCompleted += () =>
             {
-                ComboItem selectedItem = txtPlayer.SelectedItem as ComboItem;
-                long userId = 0;
-                if (selectedItem != null) { userId = Convert.ToInt64(selectedItem.Value); }
-                LoadGames(userId);
+              
+                LoadGames();
             };
             frm.ShowDialog();
         }
@@ -172,7 +313,10 @@ namespace OfflineOps
             frmPlayer frm = new frmPlayer();
             frm.OnSyncCompleted += () =>
             {
-                LoadPlayers();
+                ComboItem selectedItem = txtGame.SelectedItem as ComboItem;
+                long gameId = 0;
+                if (selectedItem != null) { gameId = Convert.ToInt64(selectedItem.Value); }
+                LoadPlayers(gameId);
             };
             frm.ShowDialog();
         }
@@ -195,15 +339,16 @@ namespace OfflineOps
 
         private void frmMain_Load(object sender, EventArgs e)
         {
-            LoadPlayers();
-            LoadHistory();
+            LoadGames();
+            LoadHistory(0, 0);
             txtBazarTime.Text = "00h 00m 00s";
             this.ActiveControl = null;
         }
 
-        private void LoadPlayers()
+        private void LoadPlayers(long gameId)
         {
-            SQLiteCommand cmd = new SQLiteCommand("SELECT id, username FROM users"); cmd.CommandType = CommandType.Text;
+            SQLiteCommand cmd = new SQLiteCommand("SELECT u.id, u.username FROM user_games g INNER JOIN users u ON g.user_id = u.id WHERE g.game_id = @game_id"); cmd.CommandType = CommandType.Text;
+            cmd.Parameters.AddWithValue("@game_id",gameId);
             DatabaseHelper databaseHelper = new DatabaseHelper(); DataTable dt = databaseHelper.Read(cmd);
             txtPlayer.Items.Clear(); txtPlayer.Items.Add(new ComboItem("-- Select Player --", 0));
             for (int i = 0; i < dt.Rows.Count; i++)
@@ -215,18 +360,24 @@ namespace OfflineOps
 
 
         private void txtPlayer_SelectedIndexChanged(object sender, EventArgs e)
-        {
+        { 
             ComboItem selectedItem = txtPlayer.SelectedItem as ComboItem; long user_id = 0;
             if (selectedItem != null) { long.TryParse(selectedItem.Value.ToString(), out user_id); }
+            ComboItem selectedBazar = txtGame.SelectedItem as ComboItem; long game_id = 0;
+            if (selectedBazar != null) { long.TryParse(selectedBazar.Value.ToString(), out game_id); }
             LoadBalance(user_id);
-            LoadGames(user_id);
+            LoadHistory(user_id, game_id);
         }
 
-        private void LoadBalance(long user_id)
+        public void LoadBalance(long user_id)
         {
             tblBalance.Controls.Clear();
             tblBalance.RowStyles.Clear();
             tblBalance.ColumnStyles.Clear();
+
+            txtBal.Text = "0000000.00";
+            txtPL.Text = "0000000.00";
+            txtCr.Text = "0000000.00";
 
             var stats = new List<(string title, decimal total, decimal exposure, bool highlight)>
                 {
@@ -244,7 +395,7 @@ namespace OfflineOps
                 try
                 {
                     string query = @"
-                        SELECT 
+                      SELECT 
                             IFNULL(aakda_total, 0) AS aakda_total,
                             IFNULL(aakda_exposure, 0) AS aakda_exposure,
                             IFNULL(pana_total, 0) AS pana_total,
@@ -253,10 +404,30 @@ namespace OfflineOps
                             IFNULL(group_pana_exposure, 0) AS group_pana_exposure,
                             IFNULL(jodi_total, 0) AS jodi_total,
                             IFNULL(jodi_exposure, 0) AS jodi_exposure,
-                            IFNULL(balance, 0) AS balance
+
+                            IFNULL(balance, 0) AS balance,
+                            IFNULL(opening_credit, 0) AS opening_credit,
+                            IFNULL(profit_loss, 0) AS profit_loss,
+
+                            (
+                                SELECT IFNULL(SUM(total_amount), 0)
+                                FROM group_trans
+                                WHERE user_id = users.id
+                                    AND server_flag = 0
+                                    AND DATE(game_date) = @date  
+                            )
+                            +
+                            (
+                                SELECT IFNULL(SUM(amount), 0)
+                                FROM single_digit
+                                WHERE user_id = users.id
+                                    AND server_flag = 0
+                                    AND cancel_status = 0
+                                    AND DATE(game_date) = @date  
+                            ) AS upload_balance
+
                         FROM users 
-                        WHERE id = @user_id AND sync_date = @date
-                        LIMIT 1;
+                        WHERE id = @user_id;
                     ";
 
                     string date = StaticVar.getGameCurrDate().Date.ToString("yyyy-MM-dd");
@@ -265,76 +436,31 @@ namespace OfflineOps
                     cmd.Parameters.AddWithValue("@user_id", user_id);
                     cmd.Parameters.AddWithValue("@date", date);
 
-                    SQLiteCommand cmd1 = new SQLiteCommand(@"
-                        SELECT 
-                            u.id AS user_id,
-                            u.username,
-                            u.contact,
-                            IFNULL(sd.total_amount, 0) AS aakda_total,
-                            IFNULL(pn.total_amount, 0) AS pana_total,
-                            IFNULL(jd.total_amount, 0) AS jodi_total,
-                            (
-                                IFNULL(sd.total_amount, 0) +
-                                IFNULL(pn.total_amount, 0) +
-                                IFNULL(jd.total_amount, 0)
-                            ) AS total_amount
-                        FROM users u
-                        LEFT JOIN (
-                            SELECT user_id, SUM(amount) AS total_amount
-                            FROM single_digit
-                            WHERE server_flag = 0 AND upload_date IS NULL
-                            GROUP BY user_id
-                        ) sd ON sd.user_id = u.id
-                        LEFT JOIN (
-                            SELECT user_id, SUM(amount) AS total_amount
-                            FROM pana
-                            WHERE server_flag = 0 AND upload_date IS NULL
-                            GROUP BY user_id
-                        ) pn ON pn.user_id = u.id
-                        LEFT JOIN (
-                            SELECT user_id, SUM(amount) AS total_amount
-                            FROM jodi
-                            WHERE server_flag = 0 AND upload_date IS NULL
-                            GROUP BY user_id
-                        ) jd ON jd.user_id = u.id
-                        WHERE u.id = @user_id;
-
-                    ");
-
-                    cmd1.Parameters.AddWithValue("@user_id", user_id);
-
                     DatabaseHelper dbHelper = new DatabaseHelper();
                     DataTable dt = dbHelper.Read(cmd);
-                    DataTable dt1 = dbHelper.Read(cmd1);
 
                     if (dt.Rows.Count > 0)
                     {
                         var row = dt.Rows[0];
 
-                        decimal aakdaTotal = 0, panaTotal = 0, jodiTotal = 0, balanceRemaining = 0;
-
-                        if (dt1.Rows.Count > 0)
-                        {
-                            aakdaTotal = Convert.ToDecimal(dt1.Rows[0]["aakda_total"]);
-                            panaTotal = Convert.ToDecimal(dt1.Rows[0]["pana_total"]);
-                            jodiTotal = Convert.ToDecimal(dt1.Rows[0]["jodi_total"]);
-                            balanceRemaining = Convert.ToDecimal(dt1.Rows[0]["total_amount"]);
-                        }
-
                         stats = new List<(string title, decimal total, decimal exposure, bool highlight)>
                         {
-                            ("Aakda", (Convert.ToDecimal(row["aakda_total"]) - aakdaTotal), (Convert.ToDecimal(row["aakda_exposure"]) - aakdaTotal), false),
-                            ("Pana", (Convert.ToDecimal(row["pana_total"]) - panaTotal), (Convert.ToDecimal(row["pana_exposure"]) - panaTotal), false),
+                            ("Aakda", (Convert.ToDecimal(row["aakda_total"])), (Convert.ToDecimal(row["aakda_exposure"])), false),
+                            ("Pana", (Convert.ToDecimal(row["pana_total"]) ), (Convert.ToDecimal(row["pana_exposure"])), false),
                             ("Group Pana", Convert.ToDecimal(row["group_pana_total"]), Convert.ToDecimal(row["group_pana_exposure"]), false),
-                            ("Jodi", (Convert.ToDecimal(row["jodi_total"]) - jodiTotal), (Convert.ToDecimal(row["jodi_exposure"]) - jodiTotal), false),
+                            ("Jodi", (Convert.ToDecimal(row["jodi_total"])), (Convert.ToDecimal(row["jodi_exposure"])), false),
                         };
 
                         decimal totalSum = stats.Sum(s => s.total);
                         stats.Add(("Total", totalSum, 0, false));
 
-                        stats.Add(("Balance", (Convert.ToDecimal(row["balance"]) - balanceRemaining), 0, true));
+                        stats.Add(("Balance", (Convert.ToDecimal(row["balance"])), 0, true));
 
-                        stats.Add(("Not Uploaded", -balanceRemaining, 0, true));
+                        stats.Add(("Not Uploaded", (Convert.ToDecimal(row["upload_balance"])), 0, true));
+
+                        txtBal.Text = StaticVar.Format2(row["balance"], txtBal);
+                        txtPL.Text = StaticVar.Format2(row["profit_loss"], txtPL);
+                        txtCr.Text = StaticVar.Format2(row["opening_credit"], txtCr);
                     }
                 }
                 catch (Exception ex)
@@ -373,10 +499,9 @@ namespace OfflineOps
 
         }
 
-        private void LoadGames(long user_id)
+        private void LoadGames()
         {
-            SQLiteCommand cmd = new SQLiteCommand("SELECT b.id, b.bazar_name FROM user_games g INNER JOIN bazar b ON g.game_id = b.id WHERE g.user_id = @user_id"); cmd.CommandType = CommandType.Text;
-            cmd.Parameters.AddWithValue("@user_id", user_id);
+            SQLiteCommand cmd = new SQLiteCommand("SELECT id, bazar_name FROM bazar"); cmd.CommandType = CommandType.Text;
             DatabaseHelper databaseHelper = new DatabaseHelper(); DataTable dt = databaseHelper.Read(cmd);
             txtGame.Items.Clear(); txtGame.Items.Add(new ComboItem("-- Select Game --", 0));
             for (int i = 0; i < dt.Rows.Count; i++)
@@ -389,7 +514,7 @@ namespace OfflineOps
         private Panel CreateStatCard(string title, decimal total, decimal exposure, bool highlight = false, bool showExposure = true)
         {
             Panel card = new Panel();
-            card.Width = 120;
+            card.Width = 150;
             card.Height = 150;
             card.Margin = new Padding(10);
             card.BackColor = title.Trim().Equals("Not Uploaded", StringComparison.OrdinalIgnoreCase)
@@ -402,9 +527,9 @@ namespace OfflineOps
             card.Padding = new Padding(5);
 
             Label lblTotal = new Label();
-            lblTotal.Text = total.ToString("N0");
+            lblTotal.Text = total.ToString("F2");
             lblTotal.Font = new Font("Segoe UI", 18, FontStyle.Bold);
-            lblTotal.AutoSize = false;
+            lblTotal.AutoSize = true;
             lblTotal.TextAlign = ContentAlignment.MiddleCenter;
             lblTotal.Dock = DockStyle.Top;
             lblTotal.Height = 40;
@@ -413,7 +538,7 @@ namespace OfflineOps
             lblTitle.Text = title;
             lblTitle.Font = new Font("Segoe UI", 10, FontStyle.Regular);
             lblTitle.ForeColor = Color.Black;
-            lblTitle.AutoSize = false;
+            lblTitle.AutoSize = true;
             lblTitle.TextAlign = ContentAlignment.MiddleCenter;
             lblTitle.Dock = DockStyle.Top;
             lblTitle.Height = 25;
@@ -421,10 +546,10 @@ namespace OfflineOps
             if (showExposure)
             {
                 Label lblExposure = new Label();
-                lblExposure.Text = exposure.ToString("N0");
+                lblExposure.Text = exposure.ToString("F2");
                 lblExposure.Font = new Font("Segoe UI", 10, FontStyle.Regular);
                 lblExposure.ForeColor = Color.Gray;
-                lblExposure.AutoSize = false;
+                lblExposure.AutoSize = true;
                 lblExposure.TextAlign = ContentAlignment.MiddleCenter;
                 lblExposure.Dock = DockStyle.Top;
                 lblExposure.Height = 25;
@@ -439,9 +564,15 @@ namespace OfflineOps
 
         private void txtGame_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ComboItem selectedItem = txtGame.SelectedItem as ComboItem; long game_id = 0;
-            if (selectedItem != null) { long.TryParse(selectedItem.Value.ToString(), out game_id); }
+            if (bazarTimer?.Enabled == true) { bazarTimer.Stop(); }
+            if (txtSession.Items.Count > 0) { txtSession.SelectedIndex = 0; }
+            ComboItem selectedUser = txtPlayer.SelectedItem as ComboItem; long user_id = 0;
+            if (selectedUser != null) { long.TryParse(selectedUser.Value.ToString(), out user_id); }
+            ComboItem selectedBazar = txtGame.SelectedItem as ComboItem; long game_id = 0;
+            if (selectedBazar != null) { long.TryParse(selectedBazar.Value.ToString(), out game_id); }
+            LoadPlayers(game_id);
             LoadSession(game_id);
+            LoadHistory(user_id, game_id);
         }
 
         private void LoadSession(long game_id)
@@ -558,12 +689,14 @@ namespace OfflineOps
             ComboItem selectedGame = txtGame.SelectedItem as ComboItem;
             ComboItem selectedSession = txtSession.SelectedItem as ComboItem;
 
+            int.TryParse(selectedPlayer?.Value?.ToString(), out int playerId);
+            int.TryParse(selectedGame?.Value?.ToString(), out int gameId);
+            int.TryParse(selectedSession?.Value?.ToString(), out int sessionId);
 
 
-
-            if (selectedPlayer == null || Convert.ToInt32(selectedPlayer.Value) == 0
-                || selectedGame == null || Convert.ToInt32(selectedGame.Value) == 0
-                || selectedSession == null || Convert.ToInt32(selectedSession.Value) == 0)
+            if (selectedPlayer == null || playerId == 0
+                || selectedGame == null || gameId == 0
+                || selectedSession == null || sessionId == 0)
             {
                 MessageBox.Show("Please select Player, Game, and Session.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 btnSubmit.Text = "Submit";
@@ -580,6 +713,7 @@ namespace OfflineOps
             string[] amt_nu = gp.MultiExplode(new[] { ':', '=', '*', '-', '+' }, msg_string);
 
             string group_id = Guid.NewGuid().ToString();
+            string bet_id = Guid.NewGuid().ToString();
 
             string gameName = gp.group_game_name;
             string gameTestName = gp.group_test_name;
@@ -605,23 +739,52 @@ namespace OfflineOps
                 return;
             }
 
+            double totalDeductedAmount = aakda_tlt_amt + pana_tlt_amt + jodi_tlt_amt + grp_tlt_amt;
+
             using (var db = new DatabaseHelper())
             {
                 db.BeginTransaction();
                 try
                 {
 
+                    //var usercmd = new SQLiteCommand(@"SELECT balance FROM users WHERE id = @id");
+                    //usercmd.Parameters.AddWithValue("@id", playerId); DataTable dt = db.Read(usercmd);
+
+                    //if (dt.Rows.Count > 0)
+                    //{
+                    //    double balance = 0;
+                    //    double.TryParse(dt.Rows[0]["balance"].ToString(), out balance);
+
+                    //    //if (balance < totalDeductedAmount)
+                    //    //{
+                    //    //    MessageBox.Show($"Insufficient Balance", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    //    //    btnSubmit.Text = "Submit";
+                    //    //    btnSubmit.Enabled = true;
+                    //    //    db.Rollback();
+                    //    //    return;
+                    //    //}
+                    //}
+                    //else
+                    //{
+                    //    MessageBox.Show($"No User Found", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    //    btnSubmit.Text = "Submit";
+                    //    btnSubmit.Enabled = true;
+                    //    db.Rollback();
+                    //    return;
+                    //}
+
                     if (single_aakda.Count > 0)
                     {
                         var cmd = new SQLiteCommand(@"
                     INSERT INTO single_digit 
-                    (id,user_id,bazar_id,bazar_cat,single0,single1,single2,single3,single4,single5,single6,single7,single8,single9,amount,server_flag,game_date,upload_date,created_date)
-                    VALUES (@id,@user_id,@bazar_id,@bazar_cat,@single0,@single1,@single2,@single3,@single4,@single5,@single6,@single7,@single8,@single9,@amount,0,@game_date,@upload_date,@created_date)");
+                    (id,bet_id,user_id,bazar_id,bazar_cat,single0,single1,single2,single3,single4,single5,single6,single7,single8,single9,amount,server_flag,game_date,upload_date,created_date)
+                    VALUES (@id,@bet_id,@user_id,@bazar_id,@bazar_cat,@single0,@single1,@single2,@single3,@single4,@single5,@single6,@single7,@single8,@single9,@amount,0,@game_date,@upload_date,@created_date)");
 
                         cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-                        cmd.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
-                        cmd.Parameters.AddWithValue("@bazar_id", Convert.ToInt32(selectedGame.Value));
-                        cmd.Parameters.AddWithValue("@bazar_cat", Convert.ToInt32(selectedSession.Value) == 2 ? "close" : "open");
+                        cmd.Parameters.AddWithValue("@bet_id", bet_id);
+                        cmd.Parameters.AddWithValue("@user_id", playerId);
+                        cmd.Parameters.AddWithValue("@bazar_id", gameId);
+                        cmd.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
 
                         for (int i = 0; i <= 9; i++)
                         {
@@ -655,9 +818,9 @@ namespace OfflineOps
                             VALUES (@id,@group_id,@user_id,@bazar_id,@bazar_cat,@pana,@amount,0,@game_date,@upload_date,@created_date)");
                                 cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
                                 cmd.Parameters.AddWithValue("@group_id", group_id);
-                                cmd.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
-                                cmd.Parameters.AddWithValue("@bazar_id", Convert.ToInt32(selectedGame.Value));
-                                cmd.Parameters.AddWithValue("@bazar_cat", Convert.ToInt32(selectedSession.Value) == 2 ? "close" : "open");
+                                cmd.Parameters.AddWithValue("@user_id", playerId);
+                                cmd.Parameters.AddWithValue("@bazar_id", gameId);
+                                cmd.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
                                 cmd.Parameters.AddWithValue("@pana", number);
                                 cmd.Parameters.AddWithValue("@amount", amount);
                                 cmd.Parameters.AddWithValue("@game_date", StaticVar.getGameCurrDate().ToString("yyyy-MM-dd"));
@@ -670,12 +833,13 @@ namespace OfflineOps
                         string no = string.Join(",", single_pana).Replace("=", "=>");
 
                         var cmdt = new SQLiteCommand(@"
-                            INSERT INTO group_trans (id,user_id,bazar_id,bazar_cat,game_name,aakda_no,pana_no,amount,total_amount,server_flag,game_date,upload_date,created_date)
-                            VALUES (@id,@user_id,@bazar_id,@bazar_cat,@game_name,@aakda_no,@pana_no,@amount,@total_amount,0,@game_date,@upload_date,@created_date)");
+                            INSERT INTO group_trans (id,bet_id,user_id,bazar_id,bazar_cat,game_name,aakda_no,pana_no,amount,total_amount,server_flag,game_date,upload_date,created_date)
+                            VALUES (@id,@bet_id,@user_id,@bazar_id,@bazar_cat,@game_name,@aakda_no,@pana_no,@amount,@total_amount,0,@game_date,@upload_date,@created_date)");
                         cmdt.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-                        cmdt.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
-                        cmdt.Parameters.AddWithValue("@bazar_id", Convert.ToInt32(selectedGame.Value));
-                        cmdt.Parameters.AddWithValue("@bazar_cat", Convert.ToInt32(selectedSession.Value) == 2 ? "close" : "open");
+                        cmdt.Parameters.AddWithValue("@bet_id", bet_id);
+                        cmdt.Parameters.AddWithValue("@user_id", playerId);
+                        cmdt.Parameters.AddWithValue("@bazar_id", gameId);
+                        cmdt.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
                         cmdt.Parameters.AddWithValue("@game_name", "pana220");
                         cmdt.Parameters.AddWithValue("@aakda_no", no);
                         cmdt.Parameters.AddWithValue("@pana_no", no);
@@ -703,9 +867,9 @@ namespace OfflineOps
                             VALUES (@id,@group_id,@user_id,@bazar_id,@bazar_cat,@jodi,@amount,0,@game_date,@upload_date,@created_date)");
                                 cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
                                 cmd.Parameters.AddWithValue("@group_id", group_id);
-                                cmd.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
-                                cmd.Parameters.AddWithValue("@bazar_id", Convert.ToInt32(selectedGame.Value));
-                                cmd.Parameters.AddWithValue("@bazar_cat", Convert.ToInt32(selectedSession.Value) == 2 ? "close" : "open");
+                                cmd.Parameters.AddWithValue("@user_id", playerId);
+                                cmd.Parameters.AddWithValue("@bazar_id", gameId);
+                                cmd.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
                                 cmd.Parameters.AddWithValue("@jodi", number);
                                 cmd.Parameters.AddWithValue("@amount", amount);
                                 cmd.Parameters.AddWithValue("@game_date", StaticVar.getGameCurrDate().ToString("yyyy-MM-dd"));
@@ -718,12 +882,13 @@ namespace OfflineOps
                         string no2 = string.Join(",", single_jodi).Replace("=", "=>");
 
                         var cmdt2 = new SQLiteCommand(@"
-                            INSERT INTO group_trans (id,user_id,bazar_id,bazar_cat,game_name,aakda_no,pana_no,amount,total_amount,server_flag,game_date,upload_date,created_date)
-                            VALUES (@id,@user_id,@bazar_id,@bazar_cat,@game_name,@aakda_no,@pana_no,@amount,@total_amount,0,@game_date,@upload_date,@created_date)");
+                            INSERT INTO group_trans (id,bet_id,user_id,bazar_id,bazar_cat,game_name,aakda_no,pana_no,amount,total_amount,server_flag,game_date,upload_date,created_date)
+                            VALUES (@id,@bet_id,@user_id,@bazar_id,@bazar_cat,@game_name,@aakda_no,@pana_no,@amount,@total_amount,0,@game_date,@upload_date,@created_date)");
                         cmdt2.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-                        cmdt2.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
-                        cmdt2.Parameters.AddWithValue("@bazar_id", Convert.ToInt32(selectedGame.Value));
-                        cmdt2.Parameters.AddWithValue("@bazar_cat", Convert.ToInt32(selectedSession.Value) == 2 ? "close" : "open");
+                        cmdt2.Parameters.AddWithValue("@bet_id", bet_id);
+                        cmdt2.Parameters.AddWithValue("@user_id", playerId);
+                        cmdt2.Parameters.AddWithValue("@bazar_id", gameId);
+                        cmdt2.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
                         cmdt2.Parameters.AddWithValue("@game_name", "all jodi");
                         cmdt2.Parameters.AddWithValue("@aakda_no", no2);
                         cmdt2.Parameters.AddWithValue("@pana_no", no2);
@@ -746,9 +911,9 @@ namespace OfflineOps
                             VALUES (@id,@group_id,@user_id,@bazar_id,@bazar_cat,@pana,@amount,0,@game_date,@upload_date,@created_date)");
                                 cmdp.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
                                 cmdp.Parameters.AddWithValue("@group_id", group_id);
-                                cmdp.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
-                                cmdp.Parameters.AddWithValue("@bazar_id", Convert.ToInt32(selectedGame.Value));
-                                cmdp.Parameters.AddWithValue("@bazar_cat", Convert.ToInt32(selectedSession.Value) == 2 ? "close" : "open");
+                                cmdp.Parameters.AddWithValue("@user_id", playerId);
+                                cmdp.Parameters.AddWithValue("@bazar_id", gameId);
+                                cmdp.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
                                 cmdp.Parameters.AddWithValue("@pana", item);
                                 cmdp.Parameters.AddWithValue("@amount", amt_nu[1]);
                                 cmdp.Parameters.AddWithValue("@game_date", StaticVar.getGameCurrDate().ToString("yyyy-MM-dd"));
@@ -759,12 +924,13 @@ namespace OfflineOps
                         }
 
                         var cmdt2 = new SQLiteCommand(@"
-                            INSERT INTO group_trans (id,user_id,bazar_id,bazar_cat,game_name,game_test_name,aakda_no,pana_no,amount,total_amount,server_flag,game_date,upload_date,created_date)
-                            VALUES (@id,@user_id,@bazar_id,@bazar_cat,@game_name,@game_test_name,@aakda_no,@pana_no,@amount,@total_amount,0,@game_date,@upload_date,@created_date)");
+                            INSERT INTO group_trans (id,bet_id,user_id,bazar_id,bazar_cat,game_name,game_test_name,aakda_no,pana_no,amount,total_amount,server_flag,game_date,upload_date,created_date)
+                            VALUES (@id,@bet_id,@user_id,@bazar_id,@bazar_cat,@game_name,@game_test_name,@aakda_no,@pana_no,@amount,@total_amount,0,@game_date,@upload_date,@created_date)");
                         cmdt2.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-                        cmdt2.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
-                        cmdt2.Parameters.AddWithValue("@bazar_id", Convert.ToInt32(selectedGame.Value));
-                        cmdt2.Parameters.AddWithValue("@bazar_cat", Convert.ToInt32(selectedSession.Value) == 2 ? "close" : "open");
+                        cmdt2.Parameters.AddWithValue("@bet_id", bet_id);
+                        cmdt2.Parameters.AddWithValue("@user_id", playerId);
+                        cmdt2.Parameters.AddWithValue("@bazar_id", gameId);
+                        cmdt2.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
                         cmdt2.Parameters.AddWithValue("@game_name", gameName);
                         cmdt2.Parameters.AddWithValue("@game_test_name", gameTestName);
                         cmdt2.Parameters.AddWithValue("@aakda_no", amt_nu[0]);
@@ -777,14 +943,27 @@ namespace OfflineOps
                         db.Update(cmdt2);
                     }
 
-                    double totalDeductedAmount = aakda_tlt_amt + pana_tlt_amt + jodi_tlt_amt + grp_tlt_amt;
+
+                    var cmdt3 = new SQLiteCommand(@"
+                            INSERT INTO bet_request (id,user_id,bazar_id,bazar_cat,bet_str,total_amount,server_flag,game_date,upload_date,created_date)
+                            VALUES (@id,@user_id,@bazar_id,@bazar_cat,@bet_str,@total_amount,0,@game_date,@upload_date,@created_date)");
+                    cmdt3.Parameters.AddWithValue("@id", bet_id);
+                    cmdt3.Parameters.AddWithValue("@user_id", playerId);
+                    cmdt3.Parameters.AddWithValue("@bazar_id", gameId);
+                    cmdt3.Parameters.AddWithValue("@bazar_cat", sessionId == 2 ? "close" : "open");
+                    cmdt3.Parameters.AddWithValue("@bet_str", numbers_new);
+                    cmdt3.Parameters.AddWithValue("@total_amount", totalDeductedAmount);
+                    cmdt3.Parameters.AddWithValue("@game_date", StaticVar.getGameCurrDate().ToString("yyyy-MM-dd"));
+                    cmdt3.Parameters.AddWithValue("@upload_date", DBNull.Value);
+                    cmdt3.Parameters.AddWithValue("@created_date", StaticVar.getCurrDateTime().ToString("yyyy-MM-dd HH:mm:ss"));
+                    db.Update(cmdt3);
 
                     var updateBalanceCmd = new SQLiteCommand(@"
                     UPDATE users 
                     SET balance = IFNULL(balance,0) - @deduct 
                     WHERE id = @user_id");
                     updateBalanceCmd.Parameters.AddWithValue("@deduct", totalDeductedAmount);
-                    updateBalanceCmd.Parameters.AddWithValue("@user_id", Convert.ToInt32(selectedPlayer.Value));
+                    updateBalanceCmd.Parameters.AddWithValue("@user_id", playerId);
                     db.Update(updateBalanceCmd);
                     db.Commit();
 
@@ -795,9 +974,8 @@ namespace OfflineOps
                     btnSubmit.Enabled = true;
 
                     syncTimer_Tick(null, null);
-
-                    LoadHistory();
-                    LoadBalance(Convert.ToInt32(selectedPlayer.Value));
+                    LoadHistory(playerId, gameId);
+                    LoadBalance(playerId);
                 }
                 catch (Exception ex)
                 {
@@ -810,136 +988,232 @@ namespace OfflineOps
             }
         }
 
-        private void LoadHistory()
+        private void LoadHistory(long userId, long bazarId)
         {
             DatabaseHelper dbHelper = new DatabaseHelper();
+            DataTable dt = new DataTable();
 
-            string query = @"
+            if (bazarId > 0)
+            {
+                string query = "";
+
+                if (userId > 0)
+                {
+                    query = @"
                          SELECT 
-                            s.id,
-                            s.user_id,
-                            s.bazar_id,
+                            tr.id,
+	                        tr.bet_id,
                             b.bazar_name,
-                            u.username,
-                            s.bazar_cat,
-                            s.server_flag,
-                            s.cancel_status,
-                            s.game_date,
-                            s.upload_date,
-                            s.created_date,
-                            'Single' AS game_type,
-                            NULL AS pana,
-                            NULL AS jodi,
-                            (
-                                IFNULL(s.single0,0) + IFNULL(s.single1,0) + IFNULL(s.single2,0) + 
-                                IFNULL(s.single3,0) + IFNULL(s.single4,0) + IFNULL(s.single5,0) + 
-                                IFNULL(s.single6,0) + IFNULL(s.single7,0) + IFNULL(s.single8,0) + 
-                                IFNULL(s.single9,0)
-                            ) AS amount,
-                            (
-                                SELECT GROUP_CONCAT(i || '-' || value)
-                                FROM (
-                                    SELECT '0' AS i, s.single0 AS value UNION ALL
-                                    SELECT '1', s.single1 UNION ALL
-                                    SELECT '2', s.single2 UNION ALL
-                                    SELECT '3', s.single3 UNION ALL
-                                    SELECT '4', s.single4 UNION ALL
-                                    SELECT '5', s.single5 UNION ALL
-                                    SELECT '6', s.single6 UNION ALL
-                                    SELECT '7', s.single7 UNION ALL
-                                    SELECT '8', s.single8 UNION ALL
-                                    SELECT '9', s.single9
-                                ) WHERE value > 0
-                            ) AS betArr
-                        FROM single_digit s
-                        JOIN bazar b ON b.id = s.bazar_id
-                        JOIN users u ON u.id = s.user_id
+                            tr.bazar_id AS bazar,
+                            tr.bazar_cat AS type,
+                            tr.single0,
+                            tr.single1,
+                            tr.single2,
+                            tr.single3,
+                            tr.single4,
+                            tr.single5,
+                            tr.single6,
+                            tr.single7,
+                            tr.single8,
+                            tr.single9,
+                            tr.game_date AS date,
+                            tr.game_name,
+                            tr.aakda_no,
+                            tr.pana_no,
+                            tr.amount,
+                            tr.cancel_status,
+                            tr.total_amount,
+                            tr.created_date AS createddt,
+                            tr.server_flag,
+                            u.username
+                            
+                        FROM (
+                            SELECT
+                                id,
+		                        bet_id,
+                                bazar_id,
+                                bazar_cat,
+                                0 AS single0, 0 AS single1, 0 AS single2, 0 AS single3, 0 AS single4,
+                                0 AS single5, 0 AS single6, 0 AS single7, 0 AS single8, 0 AS single9,
+                                game_date,
+                                game_name,
+                                CAST(aakda_no AS TEXT) AS aakda_no,
+                                CAST(pana_no AS TEXT) AS pana_no,
+                                amount,
+                                cancel_status,
+                                total_amount,
+                                created_date,
+                                server_flag,
+                                user_id
+                            FROM group_trans
+                            WHERE 
+                                bazar_id = @bazar_id
+                                AND user_id = @userId
+                                AND DATE(game_date) = @gameDate
 
-                        UNION ALL
+                            UNION
 
-                        SELECT 
-                            p.id,
-                            p.user_id,
-                            p.bazar_id,
-                            b.bazar_name,
-                            u.username,
-                            p.bazar_cat,
-                            p.server_flag,
-                            p.cancel_status,
-                            p.game_date,
-                            p.upload_date,
-                            p.created_date,
-                            'Pana' AS game_type,
-                            p.pana AS pana,
-                            NULL AS jodi,
-                            p.amount AS amount,
-                            (p.pana || '-' || p.amount) AS betArr
-                        FROM pana p
-                        JOIN bazar b ON b.id = p.bazar_id
-                        JOIN users u ON u.id = p.user_id
-
-                        UNION ALL
-
-                        SELECT 
-                            j.id,
-                            j.user_id,
-                            j.bazar_id,
-                            b.bazar_name,
-                            u.username,
-                            j.bazar_cat,
-                            j.server_flag,
-                            j.cancel_status,
-                            j.game_date,
-                            j.upload_date,
-                            j.created_date,
-                            'Jodi' AS game_type,
-                            NULL AS pana,
-                            j.jodi AS jodi,
-                            j.amount AS amount,
-                            (j.jodi || '-' || j.amount) AS betArr
-                        FROM jodi j
-                        JOIN bazar b ON b.id = j.bazar_id
-                        JOIN users u ON u.id = j.user_id
-
-                        ORDER BY created_date DESC;
+                            SELECT
+                                id,
+		                        bet_id,
+                                bazar_id,
+                                bazar_cat,
+                                single0, single1, single2, single3, single4,
+                                single5, single6, single7, single8, single9,
+                                game_date,
+                                'Aakda' AS game_name,
+                                '' AS aakda_no,
+                                '' AS pana_no,
+                                0 AS amount,
+                                cancel_status,
+                                amount AS total_amount,
+                                created_date,
+                                server_flag,
+                                user_id
+                            FROM single_digit
+                            WHERE 
+                                bazar_id = @bazar_id
+                                AND user_id = @userId
+                                AND DATE(game_date) = @gameDate
+                        ) AS tr
+                        INNER JOIN bazar AS b ON b.id = tr.bazar_id
+                        INNER JOIN users AS u ON u.id = tr.user_id
+                        ORDER BY tr.created_date DESC;
                 ";
-
-            SQLiteCommand cmd = new SQLiteCommand(query);
-            DataTable dt = dbHelper.Read(cmd);
-
-            // Format upload_date
-            foreach (DataRow row in dt.Rows)
-            {
-                row["upload_date"] = row["upload_date"] == DBNull.Value
-                    ? "Null"
-                    : StaticVar.ConvertToAmPm(row["upload_date"]?.ToString());
-            }
-
-            txtDgv.AutoGenerateColumns = false;
-            txtDgv.DataSource = dt;
-        }
-
-
-        private Dictionary<int, decimal> ParseSingleDigitInput(string input)
-        {
-            var dict = new Dictionary<int, decimal>();
-            var entries = input.Split(',');
-
-            foreach (var entry in entries)
-            {
-                var parts = entry.Trim().Split('-');
-                if (parts.Length != 2) continue;
-
-                int number = int.Parse(parts[0]);
-                decimal amount = decimal.Parse(parts[1]);
-
-                if (dict.ContainsKey(number))
-                    dict[number] += amount;
+                }
                 else
-                    dict[number] = amount;
-            }
+                {
+                    query = @"
+                         SELECT 
+                            tr.id,
+		                    tr.bet_id,
+                            b.bazar_name,
+                            tr.bazar_id AS bazar,
+                            tr.bazar_cat AS type,
+                            tr.single0,
+                            tr.single1,
+                            tr.single2,
+                            tr.single3,
+                            tr.single4,
+                            tr.single5,
+                            tr.single6,
+                            tr.single7,
+                            tr.single8,
+                            tr.single9,
+                            tr.game_date AS date,
+                            tr.game_name,
+                            tr.aakda_no,
+                            tr.pana_no,
+                            tr.amount,
+                            tr.cancel_status,
+                            tr.total_amount,
+                            tr.created_date AS createddt,
+                            tr.server_flag,
+                            u.username
+                        FROM (
+                            SELECT
+                                id,
+		                        bet_id,
+                                bazar_id,
+                                bazar_cat,
+                                0 AS single0, 0 AS single1, 0 AS single2, 0 AS single3, 0 AS single4,
+                                0 AS single5, 0 AS single6, 0 AS single7, 0 AS single8, 0 AS single9,
+                                game_date,
+                                game_name,
+                                CAST(aakda_no AS TEXT) AS aakda_no,
+                                CAST(pana_no AS TEXT) AS pana_no,
+                                amount,
+                                cancel_status,
+                                total_amount,
+                                created_date,
+                                server_flag,
+                                user_id
+                            FROM group_trans
+                            WHERE 
+                                bazar_id = @bazar_id
+                                AND DATE(game_date) = @gameDate
 
-            return dict;
+                            UNION
+
+                            SELECT
+                                id,
+		                        bet_id,
+                                bazar_id,
+                                bazar_cat,
+                                single0, single1, single2, single3, single4,
+                                single5, single6, single7, single8, single9,
+                                game_date,
+                                'Aakda' AS game_name,
+                                '' AS aakda_no,
+                                '' AS pana_no,
+                                0 AS amount,
+                                cancel_status,
+                                amount AS total_amount,
+                                created_date,
+                                server_flag,
+                                user_id
+                            FROM single_digit
+                            WHERE 
+                                bazar_id = @bazar_id
+                                AND DATE(game_date) = @gameDate
+                        ) AS tr
+                        INNER JOIN bazar AS b ON b.id = tr.bazar_id
+                        INNER JOIN users AS u ON u.id = tr.user_id
+                        ORDER BY tr.created_date DESC;
+                ";
+                }
+
+
+                SQLiteCommand cmd = new SQLiteCommand(query);
+                cmd.Parameters.AddWithValue("@bazar_id", bazarId);
+                if (userId > 0) { cmd.Parameters.AddWithValue("@userId", userId); }
+                cmd.Parameters.AddWithValue("@gameDate", StaticVar.getGameCurrDate().ToString("yyyy-MM-dd"));
+                dt = dbHelper.Read(cmd);
+
+                if (!dt.Columns.Contains("bet_request"))
+                {
+                    dt.Columns.Add("bet_request", typeof(string));
+                }
+
+                foreach (DataRow row in dt.Rows)
+                {
+                    row["createddt"] = StaticVar.ConvertToCustomTime(row["createddt"]?.ToString());
+
+                    string betReq = "";
+
+                    if (row["game_name"]?.ToString() == "Aakda")
+                    {
+                        for (int i = 1; i <= 9; i++)
+                            betReq += i + "-" + row[$"single{i}"] + ",";
+
+                        betReq += "0-" + row["single0"];
+                    }
+                    else
+                    {
+                        betReq = row["pana_no"]?.ToString();
+                    }
+
+                    row["bet_request"] = betReq;
+                }
+
+                txtDgv.AutoGenerateColumns = false;
+                txtDgv.DataSource = dt;
+
+                if (!txtDgv.Columns.Contains("btnCancel"))
+                {
+                    DataGridViewButtonColumn btnCancel = new DataGridViewButtonColumn();
+                    btnCancel.HeaderText = "Action";
+                    btnCancel.Text = "Cancel";
+                    btnCancel.Name = "btnCancel";
+                    btnCancel.UseColumnTextForButtonValue = true;
+                    txtDgv.Columns.Add(btnCancel);
+                }
+            }
+            else
+            {
+                txtDgv.AutoGenerateColumns = false;
+                txtDgv.DataSource = dt;
+            }
         }
 
         private void btnHistory_Click(object sender, EventArgs e)
@@ -947,5 +1221,37 @@ namespace OfflineOps
             frmHistory frmHistory = new frmHistory();
             frmHistory.ShowDialog();
         }
+
+        private void CancelRecord(string id, string betId)
+        {
+            try
+            {
+                DatabaseHelper db = new DatabaseHelper();
+                string query = $@"
+                                UPDATE single_digit SET cancel_status = 1 WHERE id = @id;
+                                UPDATE group_trans SET cancel_status = 1 WHERE id = @id;
+                            ";
+
+                SQLiteCommand cmd = new SQLiteCommand(query);
+                cmd.Parameters.AddWithValue("@id", id);
+                db.Update(cmd);
+
+                MessageBox.Show($"Record cancelled successfully.",
+                                "Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                ComboItem selectedUser = txtPlayer.SelectedItem as ComboItem; long user_id = 0;
+                if (selectedUser != null) { long.TryParse(selectedUser.Value.ToString(), out user_id); }
+                ComboItem selectedBazar = txtGame.SelectedItem as ComboItem; long game_id = 0;
+                if (selectedBazar != null) { long.TryParse(selectedBazar.Value.ToString(), out game_id); }
+                LoadBalance(user_id);
+                LoadHistory(user_id, game_id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error cancelling record: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+
     }
 }

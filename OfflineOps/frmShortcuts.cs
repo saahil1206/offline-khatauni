@@ -44,10 +44,12 @@ namespace OfflineOps
         {
             var shortcuts = new List<ComboItem>
             {
+                new ComboItem("Forword Select", "Tab"),
+                new ComboItem("Reverse Select", "Shift + Tab"),
                 new ComboItem("All Bazars", "Ctrl + B"),
                 new ComboItem("All Players", "Ctrl + P"),
                 new ComboItem("All Shortcuts", "Ctrl + S"),
-                new ComboItem("Transaction History", "Ctrl + T"),
+                //new ComboItem("Transaction History", "Ctrl + T"),
                 new ComboItem("Submit", "Ctrl + Enter"),
                 new ComboItem("Exit", "Esc"),
             };
